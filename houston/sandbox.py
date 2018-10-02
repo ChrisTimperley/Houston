@@ -29,12 +29,14 @@ class Sandbox(object):
                  client_bugzoo: BugZooClient,
                  container: Container,
                  state_initial: State,
+                 environment: Environment,
                  configuration: Configuration
                  ) -> None:
         self.__lock = threading.Lock()
         self._bugzoo = client_bugzoo
         self.__container = container
         self.__state = state_initial
+        self.__environment = environment
         self.__configuration = configuration
 
     @property
@@ -50,6 +52,13 @@ class Sandbox(object):
         The configuration used by the system under test.
         """
         return self.__configuration
+
+    @property
+    def environment(self) -> Environment:
+        """
+        A description of the simulated environment.
+        """
+        return self.__environment
 
     @property
     def container(self) -> Container:
