@@ -40,6 +40,14 @@ class Sandbox(object):
         self.__configuration = configuration
 
     @property
+    def running_time(self) -> float:
+        """
+        Returns the number of seconds (wall-clock time) that have elapsed
+        since this sandbox session begun.
+        """
+        raise NotImplementedError
+
+    @property
     def state(self) -> State:
         """
         The last observed state of the system under test.
@@ -79,6 +87,16 @@ class Sandbox(object):
         """
         raise NotImplementedError
 
+    def issue(self, command: Command) -> None:
+        """
+        Non-blocking for now.
+        """
+        # FIXME send message via connection
+        command.dispatch(self,
+                         self.state,
+                         self.configuration,
+                         self.environment)
+
     def run(self, commands: Sequence[Command]) -> MissionOutcome:
         """
         Executes a mission, represented as a sequence of commands, and
@@ -86,13 +104,6 @@ class Sandbox(object):
         """
         config = self.configuration
         with self.__lock:
-            time_before_setup = timer()
-            logger.debug("preparing for mission")
-            self._start(mission)
-            setup_time = timer() - time_before_setup
-            logger.debug("prepared for mission (took %.3f seconds)",
-                         setup_time)
-
             env = mission.environment
             outcomes = []
 
@@ -100,7 +111,7 @@ class Sandbox(object):
                 logger.debug('performing command: %s', cmd)
 
                 # compute expected state
-                start_time = time.time()
+                start_time = self.running_time
                 state_before = state_after = self.observe(0.0)
 
                 # determine which spec the system should observe
@@ -110,16 +121,16 @@ class Sandbox(object):
                 # enforce a timeout
                 timeout = cmd.timeout(state_before, env, config)
                 logger.debug("enforcing timeout: %.3f seconds", timeout)
-                time_before = timer()
+                time_before = self.running_time
                 passed = False
                 try:
-                    # TODO: dispatch to this container!
-                    cmd.dispatch(self, state_before, config, env)
+                    self.issue(cmd)
 
                     # block until the postcondition is satisfied or
                     # the timeout is hit
                     while not passed:
-                        state_after = self.observe(time.time() - start_time)
+                        self.observe()
+                        state_after = self.state
                         # TODO implement idle! (add timeout in idle dispatch)
                         sat = spec.postcondition.is_satisfied(cmd,
                                                               state_before,
@@ -130,16 +141,16 @@ class Sandbox(object):
                             logger.debug("command was successful")
                             passed = True
                             break
-                        if timer() - time_before >= int(math.ceil(timeout)):
+                        if self.running_time - time_before >= math.ceil(timeout):
                             raise TimeoutError
                         time.sleep(0.1)
                         logger.debug("state: %s", state_after)
 
                 except TimeoutError:
                     logger.debug("reached timeout before postcondition was satisfied")  # noqa: pycodestyle
-                time_elapsed = timer() - time_before
 
                 # record the outcome of the command execution
+                time_elapsed = self.running_time
                 outcome = CommandOutcome(cmd,
                                          passed,
                                          state_before,
@@ -155,7 +166,7 @@ class Sandbox(object):
                                           total_time)
 
             total_time = timer() - time_before_setup
-            return MissionOutcome(True, outcomes, setup_time, total_time)
+            return MissionOutcome(True, outcomes, total_time)
 
     def observe(self) -> None:
         """
@@ -164,6 +175,6 @@ class Sandbox(object):
         state_class = self.state.__class__
         variables = state_class.variables
         values = {v.name: v.read(self) for v in variables}
-        values['time_offset'] = running_time
+        values['time_offset'] = self.running_time
         state_new = state_class.from_json(values)  # FIXME this is a hack
         self.__state = state_new
