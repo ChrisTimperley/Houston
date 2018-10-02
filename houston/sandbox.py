@@ -8,7 +8,7 @@ import logging
 
 import bugzoo
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
+from bugzoo.core.container import Container
 from bugzoo.core.fileline import FileLineSet
 
 from .state import State
@@ -26,53 +26,37 @@ class Sandbox(object):
     executing test cases on a given system.
     """
     def __init__(self,
-                 system: 'System',
-                 client_bugzoo: BugZooClient
+                 client_bugzoo: BugZooClient,
+                 container: Container,
+                 state_initial: State,
+                 configuration: Configuration
                  ) -> None:
         self.__lock = threading.Lock()
-        self.__system = system
-        self.__snapshot = system.snapshot
         self._bugzoo = client_bugzoo
-        self.__container = client_bugzoo.containers.provision(self.__snapshot)
-        self.__instrumented = False
+        self.__container = container
+        self.__state = state_initial
+        self.__configuration = configuration
 
     @property
-    def snapshot(self) -> Snapshot:
+    def state(self) -> State:
         """
-        A BugZoo snapshot of the system under test.
+        The last observed state of the system under test.
         """
-        return self.__snapshot
+        return self.__state
 
     @property
-    def system(self) -> 'System':
+    def configuration(self) -> Configuration:
         """
-        The system under test by this sandbox.
+        The configuration used by the system under test.
         """
-        return self.__system
-
-    sut = system
+        return self.__configuration
 
     @property
-    def container(self) -> Optional[bugzoo.Container]:
+    def container(self) -> Container:
         """
         The BugZoo container underlying this sandbox.
         """
         return self.__container
-
-    @property
-    def bugzoo(self) -> BugZooClient:
-        """
-        The BugZoo daemon.
-        """
-        return self._bugzoo
-
-    @property
-    def alive(self) -> bool:
-        """
-        A flag indicating whether or not this sandbox is alive.
-        """
-        # FIXME should also check that container is alive via BugZoo API
-        return self.__container is not None
 
     def _start(self, mission: Mission) -> None:
         """
@@ -99,7 +83,7 @@ class Sandbox(object):
             execution for each source code file belonging to the system under
             test.
         """
-        bz = self.bugzoo
+        bz = self._bugzoo
         # TODO: somewhat hardcoded
         if not self.__instrumented:
             self.__instrumented = True
@@ -110,7 +94,7 @@ class Sandbox(object):
         bz.containers.command(self.container, cmd,
                               stdout=False, stderr=False, block=True)
         outcome = self.run(mission)
-        coverage = self.bugzoo.coverage.extract(self.container)
+        coverage = bz.coverage.extract(self.container)
 
         return (outcome, coverage)
 
@@ -119,7 +103,7 @@ class Sandbox(object):
         Executes a given mission and returns a description of the outcome.
         """
         assert self.alive
-        config = self.system.configuration
+        config = self.configuration
         self.__lock.acquire()
         try:
             time_before_setup = timer()
@@ -197,22 +181,13 @@ class Sandbox(object):
             self._stop()
             self.__lock.release()
 
-    def destroy(self) -> None:
-        """
-        Deallocates all resources used by this container.
-        """
-        if self.__container is not None:
-            del self.bugzoo.containers[self.__container.id]
-            self.__container = None
-
-    delete = destroy
-
     def observe(self, running_time: float) -> None:
         """
         Returns an observation of the current state of the system running
         inside this sandbox.
         """
-        variables = self.system.variables
+        state_class = self.state.__class__
+        variables = state_class.variables
         values = {v.name: v.read(self) for v in variables}
         values['time_offset'] = running_time
-        return self.system.__class__.state.from_json(values)
+        return state_class.from_json(values)
