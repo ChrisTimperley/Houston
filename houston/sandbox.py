@@ -67,15 +67,15 @@ class Sandbox(object):
         """
         return self.__container
 
-    def _start(self, mission: Mission) -> None:
+    def _start(self) -> None:
         """
-        Starts a new SITL instance inside this sandbox for a given mission.
+        Starts the SITL instance for this sandbox.
         """
         raise NotImplementedError
 
     def _stop(self) -> None:
         """
-        Stops the SITL running inside this sandbox.
+        Stops the SITL instance for this sandbox.
         """
         raise NotImplementedError
 
