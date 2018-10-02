@@ -73,7 +73,6 @@ class MissionOutcome(object):
     """
     passed = attr.ib(type=bool)
     outcomes = attr.ib(type=List[CommandOutcome])
-    time_setup = attr.ib(type=float)
     time_total = attr.ib(type=float)
 
     @staticmethod
@@ -87,7 +86,6 @@ class MissionOutcome(object):
     def to_dict(self) -> Dict[str, Any]:
         return {'passed': self.passed,
                 'commands': [o.to_json() for o in self.outcomes],
-                'time_setup': self.time_setup,
                 'time_total': self.time_total}
 
     # FIXME what is this for?
@@ -106,7 +104,6 @@ class MissionOutcome(object):
     def __repr__(self) -> str:
         outcomes = [repr(o) for o in self.outcomes]  # type: List[str]
         s_passed = "passed={}".format(repr(self.passed))
-        s_time_setup = "time_setup={:.3f}".format(self.time_setup)
         s_time_total = "time_total={:.3f}".format(self.time_total)
         s_outcomes = "outcomes={}".format(repr(outcomes))
         s = '; '.join([s_passed, s_time_setup, s_time_total, s_outcomes])
