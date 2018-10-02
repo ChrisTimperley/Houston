@@ -1,4 +1,4 @@
-from typing import Set, Optional, Tuple, Dict
+from typing import Set, Optional, Tuple, Dict, Sequence
 from timeit import default_timer as timer
 import math
 import time
@@ -12,9 +12,9 @@ from bugzoo.core.container import Container
 from bugzoo.core.fileline import FileLineSet
 
 from .state import State
-from .mission import Mission, MissionOutcome
+from .mission import MissionOutcome
 from .util import TimeoutError, printflush
-from .command import CommandOutcome
+from .command import Command, CommandOutcome
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -79,14 +79,13 @@ class Sandbox(object):
         """
         raise NotImplementedError
 
-    def run(self, mission: Mission) -> MissionOutcome:
+    def run(self, commands: Sequence[Command]) -> MissionOutcome:
         """
-        Executes a given mission and returns a description of the outcome.
+        Executes a mission, represented as a sequence of commands, and
+        returns a description of the outcome.
         """
-        assert self.alive
         config = self.configuration
-        self.__lock.acquire()
-        try:
+        with self.__lock:
             time_before_setup = timer()
             logger.debug("preparing for mission")
             self._start(mission)
@@ -157,10 +156,6 @@ class Sandbox(object):
 
             total_time = timer() - time_before_setup
             return MissionOutcome(True, outcomes, setup_time, total_time)
-
-        finally:
-            self._stop()
-            self.__lock.release()
 
     def observe(self, running_time: float) -> None:
         """
