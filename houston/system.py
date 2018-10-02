@@ -8,15 +8,16 @@ import bugzoo
 from bugzoo.client import Client as BugZooClient
 from bugzoo.core.bug import Bug as Snapshot
 
+from .command import Command
 from .configuration import Configuration
 from .sandbox import Sandbox
-from .mission import Mission, MissionOutcome
-from .command import CommandOutcome, Command
-from .specification import Specification
 from .state import Variable, State
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
+
+
+_NAME_TO_SYSTEM_TYPE = {}  # type: Dict[str, Type[System]]
 
 
 class SystemMeta(type):
@@ -41,6 +42,19 @@ class SystemMeta(type):
         ns['is_abstract'] = property(lambda self, v=is_abstract: v)
 
         if not is_abstract:
+            if 'name' not in ns:
+                msg = "System class definition is missing 'name' property"
+                raise TypeError(msg)
+            sys_name = ns['name']
+            if not isinstance(sys_name, str):
+                msg = "was {} but should be str".format(type(sys_name))
+                msg = "Unexpected type for 'name' property: {}".format(msg)
+                raise TypeError(msg)
+            if sys_name == '':
+                msg = "System name must be a non-empty string."
+                raise TypeError(msg)
+            ns['name'] = property(lambda self, n=sys_name: n)
+
             if 'state' not in ns:
                 msg = "System class definition is missing 'state' property"
                 raise TypeError(msg)
@@ -62,6 +76,19 @@ class SystemMeta(type):
 
         return super().__new__(mcl, cls_name, bases, ns)
 
+    def __init__(cls, cls_name: str, bases, ns: Dict[str, Any]):
+        if cls.is_abstract:
+            return super().__init__(cls_name, bases, ns)
+
+        # register system type
+        if cls.name in _NAME_TO_SYSTEM_TYPE:
+            msg = "System already registered under given name: %s"
+            msg = msg.format(cls.name)
+            raise TypeError(msg)
+        _NAME_TO_SYSTEM_TYPE[cls.name] = cls
+
+        return super().__init__(cls_name, bases, ns)
+
 
 class System(object, metaclass=SystemMeta):
     """
@@ -70,6 +97,16 @@ class System(object, metaclass=SystemMeta):
     with the system-under-test in an idempotent manner.
     """
     is_abstract = True
+
+    @staticmethod
+    def get_by_name(name: str) -> 'Type[System]':
+        """
+        Attempts to find the type definition for a system with a given name.
+
+        Raises:
+            KeyError: if no system type is registered under the given name.
+        """
+        return __NAME_TO_SYSTEM_TYPE[name]
 
     def __init__(self,
                  commands: List[Type[Command]],

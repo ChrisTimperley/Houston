@@ -15,7 +15,7 @@ from houston.mission import Mission
 from houston.runner import MissionRunnerPool
 #from houston.ardu.common.goto import CircleBasedGotoGenerator
 from houston.root_cause.delta_debugging import DeltaDebugging
-from houston.root_cause.symex import SymbolicExecution 
+from houston.root_cause.symex import SymbolicExecution
 import copy
 from houston.ardu.copter.state import State as CopterState
 from houston.ardu.rover.state import State as RoverState
@@ -156,7 +156,7 @@ def generate_with_se(sut, initial, environment, config, mission):
 if __name__ == "__main__":
     setup_logging()
     bz = BugZoo()
-    snapshot = bz.bugs['afrl:overflow']
+    snapshot = bz.bugs['ardubugs:010665f9']
     #snapshot = bz.bugs['afrl:AIS-Scenario1']
 
     config = ArduConfig(
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         SetMode(mode='LAND'),
         ArmDisarm(arm=False)
     ]
-    
+
     environment = Environment({})
     initial = CopterState(
         home_latitude=-35.3632607,
@@ -225,5 +225,4 @@ if __name__ == "__main__":
         generate_with_se(sut, initial, environment, config, mission)
 
     finally:
-#        sandbox.destroy()
         pass

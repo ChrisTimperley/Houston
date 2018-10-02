@@ -27,6 +27,7 @@ setup(
     ],
     packages = [
         'houston',
+        'houston.root_cause',
         'houston.generator',
         'houston.ardu',
         'houston.ardu.copter',
