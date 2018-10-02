@@ -157,13 +157,13 @@ class Sandbox(object):
             total_time = timer() - time_before_setup
             return MissionOutcome(True, outcomes, setup_time, total_time)
 
-    def observe(self, running_time: float) -> None:
+    def observe(self) -> None:
         """
-        Returns an observation of the current state of the system running
-        inside this sandbox.
+        Triggers an observation of the current state of the system under test.
         """
         state_class = self.state.__class__
         variables = state_class.variables
         values = {v.name: v.read(self) for v in variables}
         values['time_offset'] = running_time
-        return state_class.from_json(values)
+        state_new = state_class.from_json(values)  # FIXME this is a hack
+        self.__state = state_new
