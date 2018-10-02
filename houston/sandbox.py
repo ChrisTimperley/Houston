@@ -70,34 +70,6 @@ class Sandbox(object):
         """
         raise NotImplementedError
 
-    def run_with_coverage(self,
-                          mission: Mission,
-                          ) -> Tuple[MissionOutcome, FileLineSet]:
-        """
-        Executes a given mission and returns detailed coverage information.
-
-        Returns:
-            A tuple of the form `(outcome, coverage)`, where `outcome` provides
-            a concise description of the outcome of the mission execution, and
-            `coverage` specifies the lines that were covered during the
-            execution for each source code file belonging to the system under
-            test.
-        """
-        bz = self._bugzoo
-        # TODO: somewhat hardcoded
-        if not self.__instrumented:
-            self.__instrumented = True
-            bz.coverage.instrument(self.container)
-
-        # FIXME instruct BugZoo to clean coverage artifacts
-        cmd = "find . -name *.gcda | xargs rm"
-        bz.containers.command(self.container, cmd,
-                              stdout=False, stderr=False, block=True)
-        outcome = self.run(mission)
-        coverage = bz.coverage.extract(self.container)
-
-        return (outcome, coverage)
-
     def run(self, mission: Mission) -> MissionOutcome:
         """
         Executes a given mission and returns a description of the outcome.
