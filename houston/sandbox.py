@@ -97,6 +97,30 @@ class Sandbox(object):
                          self.configuration,
                          self.environment)
 
+    def run_command(self,
+                    command: Command,
+                    *,
+                    timeout: Optional[float] = None
+                    ) -> CommandOutcome:
+        logger.debug('running command: %s', command)
+
+        time_start = self.running_time
+        state_before = self.state
+
+        # determine which spec the system should observe
+        spec = cmd.resolve(state_before, self.environment, self.configuration)
+        logger.debug('enforcing specification: %s', spec)
+
+        # determine timeout using specification is no timeout
+        # is provided
+        if timeout is None:
+            timeout = cmd.timeout(state_before, env, config)
+        logger.debug("enforcing timeout: %.3f seconds", timeout)
+
+        self.issue(command)
+
+        # FIXME wait
+
     def run(self, commands: Sequence[Command]) -> MissionOutcome:
         """
         Executes a mission, represented as a sequence of commands, and
@@ -108,20 +132,8 @@ class Sandbox(object):
             outcomes = []
 
             for cmd in mission:
-                logger.debug('performing command: %s', cmd)
+                self.run_command()
 
-                # compute expected state
-                start_time = self.running_time
-                state_before = state_after = self.observe(0.0)
-
-                # determine which spec the system should observe
-                spec = cmd.resolve(state_before, env, config)
-                logger.debug('enforcing specification: %s', spec)
-
-                # enforce a timeout
-                timeout = cmd.timeout(state_before, env, config)
-                logger.debug("enforcing timeout: %.3f seconds", timeout)
-                time_before = self.running_time
                 passed = False
                 try:
                     self.issue(cmd)
