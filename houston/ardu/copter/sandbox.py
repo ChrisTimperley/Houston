@@ -1,21 +1,16 @@
 __all__ = ['Sandbox']
 
-import os
-
 from .state import State
 from ..sandbox import Sandbox as ArduSandbox
-from ...mission import Mission
 
 
 class Sandbox(ArduSandbox):
-    def _start(self, mission: Mission) -> None:
+    def start(self) -> None:
         # FIXME #66
-        fn_param = os.path.join(self.snapshot.source_dir,
-                                'Tools/autotest/default_params/copter.parm')
-        super()._start(mission,
-                       binary_name='arducopter',
-                       model_name='quad',
-                       param_file=fn_param)
+        fn_param = '/opt/ardupilot/Tools/autotest/default_params/copter.parm'
+        super().start(binary_name='arducopter',
+                      model_name='quad',
+                      param_file=fn_param)
 
     def _post_connection_setup(self):
         if not self.connection:
