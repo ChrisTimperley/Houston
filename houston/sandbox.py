@@ -44,10 +44,10 @@ class Sandbox(object):
                           environment,
                           configuration)
         try:
-            sandbox._start()
+            sandbox.start()
             yield sandbox
         finally:
-            sandbox._stop()
+            sandbox.stop()
 
     def __init__(self,
                  client_bugzoo: BugZooClient,
@@ -99,13 +99,13 @@ class Sandbox(object):
         """
         return self.__container
 
-    def _start(self) -> None:
+    def start(self) -> None:
         """
         Starts the SITL instance for this sandbox.
         """
         raise NotImplementedError
 
-    def _stop(self) -> None:
+    def stop(self) -> None:
         """
         Stops the SITL instance for this sandbox.
         """
