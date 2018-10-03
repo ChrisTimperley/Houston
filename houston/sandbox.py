@@ -104,11 +104,20 @@ class Sandbox(object):
                     ) -> CommandOutcome:
         logger.debug('running command: %s', command)
 
+        env = self.environment
+        config = self.configuration
         time_start = self.running_time
-        state_before = self.state
+        state_after = state_before = self.state
 
         # determine which spec the system should observe
-        spec = cmd.resolve(state_before, self.environment, self.configuration)
+        spec = cmd.resolve(state_before, env, config)
+        postcondition = spec.postcondition
+        def is_sat() -> bool:
+            return postcondition.is_satisfied(command,
+                                              state_before,
+                                              state_after,
+                                              env,
+                                              config)
         logger.debug('enforcing specification: %s', spec)
 
         # determine timeout using specification is no timeout
@@ -119,7 +128,23 @@ class Sandbox(object):
 
         self.issue(command)
 
-        # FIXME wait
+        # FIXME block until completion message or timeout occurs
+        time_elapsed = 0.0
+        time_start = timer()
+        while not is_sat() and time_elapsed < timeout:
+            self.observe()
+            state_after = self.state
+            time.sleep(0.1)
+            time_elapsed = timer() - time_start
+
+        passed = is_sat()
+        outcome = CommandOutcome(command,
+                                 passed,
+                                 state_before,
+                                 state_after,
+                                 time_elapsed)
+        return outcome
+
 
     def run(self, commands: Sequence[Command]) -> MissionOutcome:
         """
@@ -127,47 +152,12 @@ class Sandbox(object):
         returns a description of the outcome.
         """
         config = self.configuration
+        env = mission.environment
         with self.__lock:
-            env = mission.environment
             outcomes = []
 
             for cmd in mission:
-                self.run_command()
-
-                passed = False
-                try:
-                    self.issue(cmd)
-
-                    # block until the postcondition is satisfied or
-                    # the timeout is hit
-                    while not passed:
-                        self.observe()
-                        state_after = self.state
-                        # TODO implement idle! (add timeout in idle dispatch)
-                        sat = spec.postcondition.is_satisfied(cmd,
-                                                              state_before,
-                                                              state_after,
-                                                              env,
-                                                              config)
-                        if sat:
-                            logger.debug("command was successful")
-                            passed = True
-                            break
-                        if self.running_time - time_before >= math.ceil(timeout):
-                            raise TimeoutError
-                        time.sleep(0.1)
-                        logger.debug("state: %s", state_after)
-
-                except TimeoutError:
-                    logger.debug("reached timeout before postcondition was satisfied")  # noqa: pycodestyle
-
-                # record the outcome of the command execution
-                time_elapsed = self.running_time
-                outcome = CommandOutcome(cmd,
-                                         passed,
-                                         state_before,
-                                         state_after,
-                                         time_elapsed)
+                outcome = self.run_command()
                 outcomes.append(outcome)
 
                 if not passed:
