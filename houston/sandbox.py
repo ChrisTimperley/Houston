@@ -1,4 +1,4 @@
-from typing import Set, Optional, Tuple, Dict, Sequence
+from typing import Set, Optional, Tuple, Dict, Sequence, Iterator
 from timeit import default_timer as timer
 from contextlib import contextmanager
 import math
