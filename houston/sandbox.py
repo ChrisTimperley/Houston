@@ -151,7 +151,7 @@ class Sandbox(object):
         returns a description of the outcome.
         """
         config = self.configuration
-        env = mission.environment
+        env = self.environment
         time_start = timer()
         time_elapsed = 0.0
         with self.__lock:
