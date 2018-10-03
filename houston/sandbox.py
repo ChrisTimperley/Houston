@@ -1,5 +1,6 @@
 from typing import Set, Optional, Tuple, Dict, Sequence
 from timeit import default_timer as timer
+from contextlib import contextmanager
 import math
 import time
 import threading
@@ -24,6 +25,30 @@ class Sandbox(object):
     Sandboxes are used to provide an isolated, idempotent environment for
     executing test cases on a given system.
     """
+    @staticmethod
+    @contextmanager
+    def launch(client_bugzoo: BugZooClient,
+               container: Container,
+               state_initial: State,
+               environment: Environment,
+               configuration: Configuration
+               ) -> Iterator['Sandbox']:
+        """
+        Launches an interactive sandbox instance within a given Docker
+        container. The sandbox instance within the container is automatically
+        started and stopped upon entering and leaving its context.
+        """
+        sandbox = Sandbox(client_bugzoo,
+                          container,
+                          state_initial,
+                          environment,
+                          configuration)
+        try:
+            sandbox._start()
+            yield sandbox
+        finally:
+            sandbox._stop()
+
     def __init__(self,
                  client_bugzoo: BugZooClient,
                  container: Container,
