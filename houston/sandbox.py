@@ -153,22 +153,17 @@ class Sandbox(object):
         """
         config = self.configuration
         env = mission.environment
+        time_start = timer()
+        time_elapsed = 0.0
         with self.__lock:
-            outcomes = []
-
+            outcomes = []  # type: List[CommandOutcome]
             for cmd in mission:
                 outcome = self.run_command()
                 outcomes.append(outcome)
-
-                if not passed:
-                    total_time = timer() - time_before_setup
-                    return MissionOutcome(False,
-                                          outcomes,
-                                          setup_time,
-                                          total_time)
-
-            total_time = timer() - time_before_setup
-            return MissionOutcome(True, outcomes, total_time)
+                if not outcome.successful:
+                    break
+            time_elapsed = timer() - time_start
+            return MissionOutcome(passed, outcomes, time_elapsed)
 
     def observe(self) -> None:
         """
