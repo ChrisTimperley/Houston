@@ -13,7 +13,6 @@ from bugzoo.core.fileline import FileLineSet
 
 from .state import State
 from .mission import MissionOutcome
-from .util import TimeoutError, printflush
 from .command import Command, CommandOutcome
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
