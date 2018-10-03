@@ -38,9 +38,9 @@ class Environment(object):
         return self.to_json() == other.to_json()
 
     def __hash__(self) -> int:
-        l = list(self.__values.copy().items())
-        sl = sorted(l, key=lambda x: x[0])
-        return hash(tuple(sl))
+        vals = list(self.__values.copy().items())
+        sorted_vals = sorted(vals, key=lambda x: x[0])
+        return hash(tuple(sorted_vals))
 
     def to_json(self) -> Dict[str, Any]:
         return {'constants': self.__values.copy()}
