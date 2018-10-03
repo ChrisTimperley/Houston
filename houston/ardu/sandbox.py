@@ -9,7 +9,6 @@ from bugzoo.client import Client as BugZooClient
 from pymavlink import mavutil
 
 from ..sandbox import Sandbox as BaseSandbox
-from ..mission import Mission
 
 
 class NoConnectionError(BaseException):
@@ -21,11 +20,8 @@ class NoConnectionError(BaseException):
 
 
 class Sandbox(BaseSandbox):
-    def __init__(self,
-                 system: 'BaseSystem',
-                 client_bugzoo: BugZooClient
-                 ) -> None:
-        super().__init__(system, client_bugzoo)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
         self.__connection = None
         self.__sitl_thread = None
 
