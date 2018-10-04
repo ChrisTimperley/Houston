@@ -135,8 +135,7 @@ class Expression(object):
             ex = var(p.type, name)
             declarations['${}'.format(p.name)] = ex
 
-        for v in state.variables:
-            n = v.name
+        for n, v in state.variables.items():
             typ = v.typ
             name = '_{}'.format(n)
             declarations[name] = var(typ, '{}{}'.format(name, postfix))
@@ -171,8 +170,10 @@ class Expression(object):
         return var
 
     @staticmethod
-    def values_to_smt(prefix: str, values: Union[State, 'Command'],
-                      declarations: Dict[str, Any]) -> List[z3.ExprRef]:
+    def values_to_smt(prefix: str,
+                      state_or_command: Union[State, 'Command'],
+                      declarations: Dict[str, Any]
+                      ) -> List[z3.ExprRef]:
         """
         Creates a Z3 equality expression for all variables in values
         dictionary to assert their values and returns a list of Z3
@@ -190,10 +191,14 @@ class Expression(object):
                 and their values.
         """
         smt = []
-        for v in values:
-            d = declarations['{}{}'.format(prefix, v.name)]
-            val = values[v.name]
-            if type(val) == str:
+        logger.debug("converting values: %s", state_or_command)
+        for param_or_variable in state_or_command:
+            logger.debug("creating SMT assertion for var: %s",
+                         param_or_variable)
+            name = param_or_variable.name
+            val = state_or_command[name]
+            d = declarations['{}{}'.format(prefix, name)]
+            if isinstance(val, str):
                 smt.append(d == z3.StringVal(val))
             else:
                 smt.append(d == val)
@@ -237,10 +242,10 @@ class Expression(object):
         expr = z3.parse_smt2_string('(assert {})'
                                     .format(self.expression), decls=decls)
         variables = {}
-        for v in state.variables:
-            variables['_{}{}'.format(v.name, postfix)] = float(v.noise) \
+        for n, v in state.variables.items():
+            variables['_{}{}'.format(n, postfix)] = float(v.noise) \
                 if v.is_noisy else 0.0
-            variables['__{}{}'.format(v.name, postfix)] = float(v.noise) \
+            variables['__{}{}'.format(n, postfix)] = float(v.noise) \
                 if v.is_noisy else 0.0
         expr_with_noise = [Expression.recreate_with_noise(expr, variables)]
         return expr_with_noise
