@@ -1,7 +1,6 @@
 __all__ = ['ArduRover']
 
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
 
 from .sandbox import Sandbox
 from .state import State
@@ -17,7 +16,6 @@ class ArduRover(BaseSystem):
     schemas = []
 
     def __init__(self,
-                 snapshot: Snapshot,
                  configuration: Configuration
                  ) -> None:
         from ..common import ArmDisarm
@@ -29,4 +27,4 @@ class ArduRover(BaseSystem):
             GoTo,
             ArmDisarm
         ]
-        super().__init__(snapshot, commands, configuration)
+        super().__init__(commands, configuration)

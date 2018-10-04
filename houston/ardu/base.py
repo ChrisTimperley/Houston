@@ -2,8 +2,6 @@ __all__ = ['BaseSystem']
 
 from typing import List, Type
 
-from bugzoo.core.bug import Bug as Snapshot
-
 from .sandbox import Sandbox
 from ..configuration import Configuration
 from ..system import System
@@ -19,11 +17,7 @@ class BaseSystem(System):
     is_abstract = True
 
     def __init__(self,
-                 snapshot: Snapshot,
                  commands: List[Type[Command]],
                  config: Configuration
                  ) -> None:
-        super().__init__(commands, snapshot, config)
-
-    def provision(self) -> Sandbox:
-        return Sandbox(self)
+        super().__init__(commands, config)

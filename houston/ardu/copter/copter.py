@@ -3,7 +3,6 @@ __all__ = ['ArduCopter']
 import logging
 
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
 
 from .state import State
 from .sandbox import Sandbox
@@ -21,7 +20,6 @@ class ArduCopter(BaseSystem):
     schemas = []
 
     def __init__(self,
-                 snapshot: Snapshot,
                  configuration: Configuration
                  ) -> None:
         from houston.ardu.common import ArmDisarm
@@ -36,4 +34,4 @@ class ArduCopter(BaseSystem):
             SetMode,
             Parachute
         ]
-        super().__init__(snapshot, commands, configuration)
+        super().__init__(commands, configuration)

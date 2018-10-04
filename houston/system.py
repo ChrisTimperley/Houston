@@ -6,7 +6,6 @@ import logging
 
 import bugzoo
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
 
 from .command import Command
 from .configuration import Configuration
@@ -119,11 +118,9 @@ class System(object, metaclass=SystemMeta):
 
     def __init__(self,
                  commands: List[Type[Command]],
-                 snapshot: Snapshot,
                  config: Configuration
                  ) -> None:
         # TODO do not allow instantiation of abstract classes
-        self.__snapshot = snapshot
         self.__configuration = config
         # FIXME this should be a class variable
         self.commands = {c.name: c for c in commands}
@@ -131,14 +128,6 @@ class System(object, metaclass=SystemMeta):
     @property
     def configuration(self) -> Configuration:
         return self.__configuration
-
-    @property
-    def snapshot(self) -> Snapshot:
-        """
-        The snapshot, provided by BugZoo, used to provide access to a concrete
-        implementation of this system (known as a "sandbox").
-        """
-        return self.__snapshot
 
     def variable(self, v: str) -> Variable:
         warnings.warn("System.variable will soon be removed",
