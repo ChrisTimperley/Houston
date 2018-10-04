@@ -42,7 +42,17 @@ class Sandbox(object):
         Docker container (and all of its associated resources) is automatically
         created and destroyed upon entering and leaving the context.
         """
-        raise NotImplementedError
+        container = None  # type: Optional[Container]
+        try:
+            container = client_bugzoo.containers.provision(name_image)
+            yield from cls.launch(client_bugzoo,
+                                  container,
+                                  state_initial,
+                                  environment,
+                                  configuration)
+        finally:
+            if container:
+                del client_bugzoo.containers[container.uid]
 
     @classmethod
     @contextmanager
