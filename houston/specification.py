@@ -194,7 +194,7 @@ class Expression(object):
         logger.debug("converting values: %s", state_or_command)
         for param_or_variable in state_or_command:
             logger.debug("creating SMT assertion for var: %s",
-                         param_or_variable)
+                         param_or_variable.name)
             name = param_or_variable.name
             val = state_or_command[name]
             d = declarations['{}{}'.format(prefix, name)]
@@ -255,6 +255,7 @@ class Expression(object):
                             variables: Dict[z3.ArithRef, float]
                             ) -> z3.ExprRef:
         recreate = Expression.recreate_with_noise
+        logger.debug("recreating expression with noise: %s", expr)
         d = expr.decl()
         if str(d) != '==':
             children = [recreate(c, variables) for c in expr.children()]
