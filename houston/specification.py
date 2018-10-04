@@ -191,7 +191,7 @@ class Expression(object):
                 and their values.
         """
         smt = []
-        logger.debug("converting values: %s", state_or_command)
+        logger.debug("converting values to SMT: %s", state_or_command)
         for param_or_variable in state_or_command:
             logger.debug("creating SMT assertion for var: %s",
                          param_or_variable.name)
@@ -202,6 +202,7 @@ class Expression(object):
                 smt.append(d == z3.StringVal(val))
             else:
                 smt.append(d == val)
+        logger.debug("converted values to SMT: %s", smt)
         return smt
 
     def is_satisfiable(self,
