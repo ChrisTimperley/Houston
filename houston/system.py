@@ -117,17 +117,10 @@ class System(object, metaclass=SystemMeta):
         return __NAME_TO_SYSTEM_TYPE[name]
 
     def __init__(self,
-                 commands: List[Type[Command]],
-                 config: Configuration
+                 commands: List[Type[Command]]
                  ) -> None:
-        # TODO do not allow instantiation of abstract classes
-        self.__configuration = config
         # FIXME this should be a class variable
         self.commands = {c.name: c for c in commands}
-
-    @property
-    def configuration(self) -> Configuration:
-        return self.__configuration
 
     def variable(self, v: str) -> Variable:
         warnings.warn("System.variable will soon be removed",
