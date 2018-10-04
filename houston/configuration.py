@@ -120,10 +120,9 @@ class Configuration(object, metaclass=ConfigurationMeta):
 
     def __eq__(self, other: 'Configuration') -> bool:
         if type(self) != type(other):
-            msg = "comparison of different classesof configs: [{}] vs. [{}]"
+            msg = "illegal comparison of configurations: [{}] vs. [{}]"
             msg = msg.format(self.__class__.__name__, other.__class__.__name__)
-            logger.warning(msg)
-            return False
+            raise Exception(msg)  # FIXME use HoustonException
         return self.__dict__ == other.__dict__
 
     def to_dict(self) -> Dict[str, Any]:

@@ -48,6 +48,8 @@ def test_hash():
 
     c5 = Y(foo=0)
     assert len({c1, c5}) == 2
+    with pytest.raises(Exception):
+        assert c1 != c5
 
 
 
