@@ -251,6 +251,7 @@ class Expression(object):
         expr_with_noise = [Expression.recreate_with_noise(expr, variables)]
         return expr_with_noise
 
+    # FIXME needs docstring
     @staticmethod
     def recreate_with_noise(expr: z3.ExprRef,
                             variables: Dict[z3.ArithRef, float]
@@ -273,20 +274,22 @@ class Expression(object):
 
         def absolute(x):
             return z3.If(x > 0, x, -x)
-        return absolute(lhs - rhs) <= Expression.get_noise(expr, variables)
+        expr = absolute(lhs - rhs) <= Expression.get_noise(expr, variables)
+        logger.debug('recreated expression with noise: %s', expr)
+        return expr
 
+    # FIXME needs docstring
     @staticmethod
     def get_noise(expr: z3.ExprRef,
                   variables: Dict[z3.ArithRef, float]
                   ) -> float:
+        logger.debug("getting noise for expression: %s", expr)
         if len(expr.children()) == 0:
             if isinstance(expr, z3.ArithRef) and str(expr) in variables:
                 return variables[str(expr)]
             else:
                 return 0.0
-        noises = []
-        for c in expr.children():
-            noises.append(Expression.get_noise(c, variables))
+        noises = [Expression.get_noise(c, variables) for c in expr.children()]
         if str(expr.decl()) == '*':
             f = 1.0
             for i in noises:
@@ -331,6 +334,10 @@ class Specification(object):
                 environment: Environment,
                 config: Configuration
                 ) -> float:
+        """
+        Returns an upper bound on the length of time that it should take for
+        a given command to satisfy this specification.
+        """
         return self.__timeout(command, state, environment, config)
 
     def get_constraint(self,
