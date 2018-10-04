@@ -8,6 +8,7 @@ import signal
 import logging
 
 import bugzoo
+from bugzoo import Bug as Snapshot
 from bugzoo.client import Client as BugZooClient
 from bugzoo.core.container import Container
 from bugzoo.core.fileline import FileLineSet
