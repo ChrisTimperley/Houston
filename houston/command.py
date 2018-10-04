@@ -223,9 +223,9 @@ class Command(object, metaclass=CommandMeta):
         return getattr(self, param._field)
 
     def __hash__(self) -> int:
-        all_params = [self[p.name] for p in self.__class__.parameters]
-        all_params.insert(0, self.uid)
-        return hash(tuple(all_params))
+        params = (self.uid,)
+        params += tuple(self[p.name] for p in self.__class__.parameters)
+        return hash(params)
 
     @property
     def uid(self) -> str:
