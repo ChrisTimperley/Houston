@@ -64,6 +64,15 @@ class SystemMeta(type):
                 msg = "Unexpected class for 'state' property: {}".format(msg)
                 raise TypeError(msg)
 
+            if 'sandbox' not in ns:
+                msg = "System class definition is missing 'sandbox' property"
+                raise TypeError(msg)
+            if not issubclass(ns['sandbox'], Sandbox):
+                typ = ns['sandbox'].__name__
+                msg = "was {} but should be a subclass of Sandbox".format(typ)
+                msg = "Unexpected class for 'sandbox' property: {}".format(msg)
+                raise TypeError(msg)
+
             # if 'configuration' not in ns:
             #     msg = "System class definition is missing 'configuration' property"  # noqa: pycodestyle
             #     raise TypeError(msg)
@@ -118,12 +127,6 @@ class System(object, metaclass=SystemMeta):
         self.__configuration = config
         # FIXME this should be a class variable
         self.commands = {c.name: c for c in commands}
-
-    def provision(self, client_bugzoo: BugZooClient) -> Sandbox:
-        """
-        Constructs an interactive, ephemeral sandbox for this system.
-        """
-        raise NotImplementedError
 
     @property
     def configuration(self) -> Configuration:

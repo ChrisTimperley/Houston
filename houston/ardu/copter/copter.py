@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 class ArduCopter(BaseSystem):
     name = 'arducopter'
     state = State
+    sandbox = Sandbox
     schemas = []
 
     def __init__(self,
@@ -36,6 +37,3 @@ class ArduCopter(BaseSystem):
             Parachute
         ]
         super().__init__(snapshot, commands, configuration)
-
-    def provision(self, client_bugzoo: BugZooClient) -> Sandbox:
-        return Sandbox(self, client_bugzoo)
