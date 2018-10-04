@@ -29,6 +29,23 @@ class Sandbox(object):
     """
     @classmethod
     @contextmanager
+    def for_image(cls,
+                  client_bugzoo: BugZooClient,
+                  name_image: str,
+                  state_initial: State,
+                  environment: Environment,
+                  configuration: Configuration
+                  ) -> Iterator['Sandbox']:
+        """
+        Creates an ephemeral BugZoo container using a provided image before
+        launching an interactive sandbox instance inside that container. The
+        Docker container (and all of its associated resources) is automatically
+        created and destroyed upon entering and leaving the context.
+        """
+        raise NotImplementedError
+
+    @classmethod
+    @contextmanager
     def launch(cls,
                client_bugzoo: BugZooClient,
                container: Container,
