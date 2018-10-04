@@ -13,6 +13,7 @@ from .goto import GoTo
 class ArduRover(BaseSystem):
     name = 'ardurover'
     state = State
+    sandbox = Sandbox
     schemas = []
 
     def __init__(self,
@@ -29,6 +30,3 @@ class ArduRover(BaseSystem):
             ArmDisarm
         ]
         super().__init__(snapshot, commands, configuration)
-
-    def provision(self, client_bugzoo: BugZooClient) -> Sandbox:
-        return Sandbox(self, client_bugzoo)

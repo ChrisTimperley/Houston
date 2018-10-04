@@ -158,6 +158,7 @@ if __name__ == "__main__":
     bz = BugZoo()
     snapshot = bz.bugs['ardubugs:742cdf6b']
     #snapshot = bz.bugs['afrl:AIS-Scenario1']
+    container = bz.containers.provision(snapshot)
 
     config = ArduConfig(
         speedup=1,
@@ -203,7 +204,12 @@ if __name__ == "__main__":
     mission = Mission(config, environment, initial, cmds)
 
     # create a container for the mission execution
-    sandbox = sut.provision(bz)
+    sandbox = sut.sandbox.launch(bz,
+                                 container,
+                                 initial,
+                                 environment,
+                                 config)
+
     try:
         run_single_mission(sandbox, mission)
         #run_single_mission_with_coverage(sandbox, mission)
@@ -226,4 +232,4 @@ if __name__ == "__main__":
 
     finally:
         #pass
-        sandbox.destroy()
+        del bz.containers[container.id]
