@@ -12,6 +12,8 @@ from bugzoo.client import Client as BugZooClient
 from bugzoo.core.container import Container
 from bugzoo.core.fileline import FileLineSet
 
+from .environment import Environment
+from .configuration import Configuration
 from .state import State
 from .mission import MissionOutcome
 from .command import Command, CommandOutcome
