@@ -72,6 +72,18 @@ class SystemMeta(type):
                 msg = "Unexpected class for 'sandbox' property: {}".format(msg)
                 raise TypeError(msg)
 
+            if 'commands' not in ns:
+                msg = "System class definition is missing 'commands' property"
+                raise TypeError(msg)
+            if not isinstance(ns['commands'], list) \
+               or any(not issubclass(x, Command) for x in ns['commands']):
+                msg  = "was {} but should be List[Type[Command]]"
+                msg = msg.format(ns['commands'])
+                msg  = "Unexpected type for 'commands' property: {}".format(msg)
+
+            # TODO convert to a frozen dictionary
+            ns['commands'] = {c.name: c for c in ns['commands']}
+
             # if 'configuration' not in ns:
             #     msg = "System class definition is missing 'configuration' property"  # noqa: pycodestyle
             #     raise TypeError(msg)
@@ -115,12 +127,6 @@ class System(object, metaclass=SystemMeta):
             KeyError: if no system type is registered under the given name.
         """
         return __NAME_TO_SYSTEM_TYPE[name]
-
-    def __init__(self,
-                 commands: List[Type[Command]]
-                 ) -> None:
-        # FIXME this should be a class variable
-        self.commands = {c.name: c for c in commands}
 
     def variable(self, v: str) -> Variable:
         warnings.warn("System.variable will soon be removed",

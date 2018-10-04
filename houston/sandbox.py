@@ -51,11 +51,8 @@ class Sandbox(object):
         container = None  # type: Optional[Container]
         try:
             container = client_bugzoo.containers.provision(snapshot)
-            yield from cls.for_container(client_bugzoo,
-                                         container,
-                                         state_initial,
-                                         environment,
-                                         configuration)
+            with cls.for_container(client_bugzoo, container, state_initial, environment, configuration) as sandbox:  # noqa: pycodestyle
+                yield sandbox
         finally:
             if container:
                 del client_bugzoo.containers[container.uid]
