@@ -189,7 +189,7 @@ class Sandbox(object):
         # determine timeout using specification is no timeout
         # is provided
         if timeout is None:
-            timeout = cmd.timeout(state_before, env, config)
+            timeout = command.timeout(state_before, env, config)
         logger.debug("enforcing timeout: %.3f seconds", timeout)
 
         self.issue(command)
@@ -223,10 +223,12 @@ class Sandbox(object):
         time_elapsed = 0.0
         with self.__lock:
             outcomes = []  # type: List[CommandOutcome]
+            passed = True
             for cmd in commands:
                 outcome = self.run_command(cmd)
                 outcomes.append(outcome)
                 if not outcome.successful:
+                    passed = False
                     break
             time_elapsed = timer() - time_start
             return MissionOutcome(passed, outcomes, time_elapsed)
