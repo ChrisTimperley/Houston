@@ -115,17 +115,17 @@ class Sandbox(BaseSandbox):
         # wait until vehicle is ready to test
         self.__connection.wait_ready('autopilot_version')
 
+        # FIXME add timeout
         # wait for longitude and latitude to match their expected values, and
         # for the system to match the expected `armable` state.
-        initial_lon = mission.initial_state['longitude']
-        initial_lat = mission.initial_state['latitude']
-        v = self.system.variable
+        initial_lon = self.state_initial['longitude']
+        initial_lat = self.state_initial['latitude']
+        variables = self.state_initial.__class__.variables
         while True:
-            observed = self.observe(0.0)
-            ready_lon = v('longitude').eq(initial_lon, observed['longitude'])
-            ready_lat = v('latitude').eq(initial_lat, observed['latitude'])
-            ready_armable = \
-                observed['armable'] == self.state['armable']
+            self.observe()
+            ready_lon = v['longitude'].eq(initial_lon, self.state['longitude'])
+            ready_lat = v['latitude'].eq(initial_lat, self.state['latitude'])
+            ready_armable = self.state['armable'] == initial_armable
             if ready_lon and ready_lat and ready_armable:
                 break
             time.sleep(0.05)
