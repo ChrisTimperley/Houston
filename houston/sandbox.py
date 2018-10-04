@@ -29,13 +29,13 @@ class Sandbox(object):
     """
     @classmethod
     @contextmanager
-    def for_image(cls,
-                  client_bugzoo: BugZooClient,
-                  name_image: str,
-                  state_initial: State,
-                  environment: Environment,
-                  configuration: Configuration
-                  ) -> Iterator['Sandbox']:
+    def for_snapshot(cls,
+                     client_bugzoo: BugZooClient,
+                     snapshot: Snapshot,
+                     state_initial: State,
+                     environment: Environment,
+                     configuration: Configuration
+                     ) -> Iterator['Sandbox']:
         """
         Creates an ephemeral BugZoo container using a provided image before
         launching an interactive sandbox instance inside that container. The
@@ -44,25 +44,25 @@ class Sandbox(object):
         """
         container = None  # type: Optional[Container]
         try:
-            container = client_bugzoo.containers.provision(name_image)
-            yield from cls.launch(client_bugzoo,
-                                  container,
-                                  state_initial,
-                                  environment,
-                                  configuration)
+            container = client_bugzoo.containers.provision(snapshot)
+            yield from cls.for_container(client_bugzoo,
+                                         container,
+                                         state_initial,
+                                         environment,
+                                         configuration)
         finally:
             if container:
                 del client_bugzoo.containers[container.uid]
 
     @classmethod
     @contextmanager
-    def launch(cls,
-               client_bugzoo: BugZooClient,
-               container: Container,
-               state_initial: State,
-               environment: Environment,
-               configuration: Configuration
-               ) -> Iterator['Sandbox']:
+    def for_container(cls,
+                      client_bugzoo: BugZooClient,
+                      container: Container,
+                      state_initial: State,
+                      environment: Environment,
+                      configuration: Configuration
+                      ) -> Iterator['Sandbox']:
         """
         Launches an interactive sandbox instance within a given Docker
         container. The sandbox instance within the container is automatically
