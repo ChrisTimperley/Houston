@@ -96,6 +96,7 @@ class Sandbox(object):
         self.__state_initial = state_initial
         self.__environment = environment
         self.__configuration = configuration
+        self.__time_start = timer()
 
     @property
     def running_time(self) -> float:
@@ -103,7 +104,7 @@ class Sandbox(object):
         Returns the number of seconds (wall-clock time) that have elapsed
         since this sandbox session begun.
         """
-        raise NotImplementedError
+        return timer() - self.__time_start
 
     @property
     def state(self) -> State:
@@ -238,5 +239,5 @@ class Sandbox(object):
         variables = state_class.variables
         values = {v.name: v.read(self) for v in variables}
         values['time_offset'] = self.running_time
-        state_new = state_class.from_json(values)  # FIXME this is a hack
+        state_new = state_class(**values)
         self.__state = state_new
