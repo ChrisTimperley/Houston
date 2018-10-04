@@ -3,12 +3,16 @@ import time
 import os
 import sys
 import threading
+import logging
 
 import dronekit
 from bugzoo.client import Client as BugZooClient
 from pymavlink import mavutil
 
 from ..sandbox import Sandbox as BaseSandbox
+
+logger = logging.getLogger(__name__)  # type: logging.Logger
+logger.setLevel(logging.DEBUG)
 
 
 class NoConnectionError(BaseException):
@@ -51,43 +55,44 @@ class Sandbox(BaseSandbox):
         Launches the SITL inside the sandbox and blocks until its execution
         has finished.
         """
-        bzc = self.bugzoo.containers
+        bzc = self._bugzoo.containers
 
         # FIXME #47
         home = "-35.362938,149.165085,584,270"
-        name_bin = os.path.join(self.snapshot.source_dir,
-                                "build/sitl/bin",
+        name_bin = os.path.join("/opt/ardupilot/build/sitl/bin",  # FIXME
                                 name_bin)
-        speedup = self.system.configuration.speedup
+        speedup = self.configuration.speedup
         cmd = '{} --model "{}" --speedup "{}" --home "{}" --defaults "{}"'
         cmd = cmd.format(name_bin, name_model, speedup, home, fn_param)
-        print("COMMAND: {}".format(cmd))
+        logger.debug("launching SITL via: %s", cmd)
 
         if not verbose:
             bzc.command(self.container, cmd, block=False,
                         stdout=False, stderr=False)
             return
 
+        # FIXME this will only work if we have direct access to the BugZoo
+        #   daemon (i.e., this code won't work if we execute it remotely).
         execution_response = \
             bzc.command(self.container, cmd, stdout=True,
                         stderr=True, block=False)
 
         for line in execution_response.output:
             line = line.decode(sys.stdout.encoding).rstrip('\n')
-            print(line, flush=True)
+            logger.debug(line)
 
-    def _start(self,
-               mission: Mission,
-               binary_name: str,
-               model_name: str,
-               param_file: str,
-               verbose: bool = True
-               ) -> None:
+    def start(self,
+              binary_name: str,
+              model_name: str,
+              param_file: str,
+              verbose: bool = True
+              ) -> None:
         """
         Launches the SITL inside this sandbox, and establishes a connection to
         the vehicle running inside the simulation. Blocks until SITL is
         launched and a connection is established.
         """
+        bzc = self._bugzoo.containers
         args = (binary_name, model_name, param_file, verbose)
         self.__sitl_thread = threading.Thread(target=self._launch_sitl,
                                               args=args)
@@ -98,8 +103,9 @@ class Sandbox(BaseSandbox):
         # TODO fix connection issue
         protocol = 'tcp'
         port = 5760
-        ip = str(self.bugzoo.containers.ip_address(self.container))
+        ip = str(bzc.ip_address(self.container))
         url = "{}:{}:{}".format(protocol, ip, port)
+
         dummy_connection = mavutil.mavlink_connection(url)
         time.sleep(10)
         dummy_connection.close()
@@ -119,13 +125,13 @@ class Sandbox(BaseSandbox):
             ready_lon = v('longitude').eq(initial_lon, observed['longitude'])
             ready_lat = v('latitude').eq(initial_lat, observed['latitude'])
             ready_armable = \
-                observed['armable'] == mission.initial_state['armable']
+                observed['armable'] == self.state['armable']
             if ready_lon and ready_lat and ready_armable:
                 break
             time.sleep(0.05)
 
-        if not self._post_connection_setup():
-            print("Post connection setup failed!")
+        if not self._on_connected():
+            raise Exception("post-connection setup failed.")  # FIXME better exception  # noqa: pycodestyle
 
         # wait until the vehicle is in GUIDED mode
         # TODO: add timeout
@@ -134,23 +140,16 @@ class Sandbox(BaseSandbox):
         while self.__connection.mode != guided_mode:
             time.sleep(0.05)
 
-    def _stop(self) -> None:
-        """
-        Closes any connection to a simulated vehicle inside the sandbox, before
-        terminating the associated simulator.
-        """
-        bzc = self.bugzoo.containers
-
+    def stop(self) -> None:
+        bzc = self._bugzoo.containers
         if self.connection:
             self.connection.close()
-
-        # close the SITL
         cmd = 'ps aux | grep -i sitl | awk {\'"\'"\'print $2\'"\'"\'} | xargs kill -2'  # noqa: pycodestyle
         bzc.command(self.container, cmd, stdout=False, stderr=False,
                     block=True)
 
-    def _post_connection_setup(self):
+    def _on_connected(self) -> bool:
         """
-        Instructions to run after the connection is established.
+        Called immediately after a connection to the vehicle is established.
         """
         return True
