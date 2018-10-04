@@ -27,9 +27,10 @@ class Sandbox(object):
     Sandboxes are used to provide an isolated, idempotent environment for
     executing test cases on a given system.
     """
-    @staticmethod
+    @classmethod
     @contextmanager
-    def launch(client_bugzoo: BugZooClient,
+    def launch(cls,
+               client_bugzoo: BugZooClient,
                container: Container,
                state_initial: State,
                environment: Environment,
@@ -40,11 +41,11 @@ class Sandbox(object):
         container. The sandbox instance within the container is automatically
         started and stopped upon entering and leaving its context.
         """
-        sandbox = Sandbox(client_bugzoo,
-                          container,
-                          state_initial,
-                          environment,
-                          configuration)
+        sandbox = cls(client_bugzoo,
+                      container,
+                      state_initial,
+                      environment,
+                      configuration)
         try:
             sandbox.start()
             yield sandbox
@@ -62,6 +63,7 @@ class Sandbox(object):
         self._bugzoo = client_bugzoo
         self.__container = container
         self.__state = state_initial
+        self.__state_initial = state_initial
         self.__environment = environment
         self.__configuration = configuration
 
@@ -79,6 +81,13 @@ class Sandbox(object):
         The last observed state of the system under test.
         """
         return self.__state
+
+    @property
+    def state_initial(self) -> State:
+        """
+        The initial state of the system under test.
+        """
+        return self.__state_initial
 
     @property
     def configuration(self) -> Configuration:
