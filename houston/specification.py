@@ -124,6 +124,8 @@ class Expression(object):
             A dictionary with the name of variables as key and
             Z3 variable as value.
         """
+        logger.debug("obtaining declarations for command [%s] and state [%s] using postfix [%s]",  # noqa: pycodestyle
+                     command, state, postfix)
         declarations = {}
         var = Expression.create_z3_var
 
@@ -142,6 +144,7 @@ class Expression(object):
             name = '__{}'.format(n)
             declarations[name] = var(typ, '{}{}'.format(name, postfix))
 
+        logger.debug("obtained declarations: %s", declarations)
         return declarations
 
     @staticmethod
