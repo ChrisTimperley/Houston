@@ -120,7 +120,8 @@ class Sandbox(BaseSandbox):
         # for the system to match the expected `armable` state.
         initial_lon = self.state_initial['longitude']
         initial_lat = self.state_initial['latitude']
-        variables = self.state_initial.__class__.variables
+        initial_armable = self.state_initial['armable']
+        v = self.state_initial.__class__.variables
         while True:
             self.observe()
             ready_lon = v['longitude'].eq(initial_lon, self.state['longitude'])
