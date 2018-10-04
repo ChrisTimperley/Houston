@@ -59,8 +59,8 @@ def main():
                       commands)
 
     # the Docker image that provides the SUT
-    image = 'ardubugs:742cdf6b'
-    with Sandbox.for_snapshot(bz, image, state_initial, environment, configuration) as sandbox:  # noqa: pycodestyle
+    snapshot = 'ardubugs:1a207c91'
+    with Sandbox.for_snapshot(bz, snapshot, state_initial, environment, configuration) as sandbox:  # noqa: pycodestyle
         outcome = sandbox.run(commands)
 
     print(outcome)
