@@ -1,4 +1,4 @@
-from typing import Set, Optional, Tuple, Dict, Sequence, Iterator
+from typing import Set, Optional, Tuple, Dict, Sequence, Iterator, Union
 from timeit import default_timer as timer
 from contextlib import contextmanager
 import math
@@ -31,7 +31,7 @@ class Sandbox(object):
     @contextmanager
     def for_snapshot(cls,
                      client_bugzoo: BugZooClient,
-                     snapshot: Snapshot,
+                     snapshot_or_name: Union[str, Snapshot],
                      state_initial: State,
                      environment: Environment,
                      configuration: Configuration
@@ -42,6 +42,11 @@ class Sandbox(object):
         Docker container (and all of its associated resources) is automatically
         created and destroyed upon entering and leaving the context.
         """
+        if isinstance(snapshot_or_name, str):
+            snapshot = client_bugzoo.bugs[snapshot_or_name]
+        else:
+            snapshot = snapshot_or_name
+
         container = None  # type: Optional[Container]
         try:
             container = client_bugzoo.containers.provision(snapshot)
