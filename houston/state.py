@@ -133,9 +133,10 @@ class StateMeta(type):
                 logger.debug("found variable: %s", name)
                 variable_builders[name] = ns[name]
         logger.debug("building variables")
-        variables = frozenset(
-            b.build(name) for (name, b) in variable_builders.items()
-        )  # type: FrozenSet[Variable]
+        # FIXME build frozen dictionary
+        variables = {
+            name: b.build(name) for (name, b) in variable_builders.items()
+        }  # type: Dict[str, Variable]
         logger.debug("built variables: %s", variables)
 
         logger.debug("storing variables in variables property")
@@ -143,7 +144,7 @@ class StateMeta(type):
         logger.debug("stored variables in variables property")
 
         logger.debug("constructing properties")
-        for variable in variables:
+        for name, variable in variables.items():
             field = variable._field
             getter = lambda self, f=field: getattr(self, f)
             ns[variable.name] = property(getter)
@@ -173,7 +174,7 @@ class State(object, metaclass=StateMeta):
 
     def __init__(self, *args, **kwargs) -> None:
         cls_name = self.__class__.__name__
-        variables = self.__class__.variables  # type: FrozenSet[Variable]
+        variables = self.__class__.variables  # type: Dict[str, Variable]
 
         try:
             self.__time_offset = kwargs['time_offset']
@@ -191,12 +192,12 @@ class State(object, metaclass=StateMeta):
             raise TypeError(msg)
 
         # set values for each variable
-        for v in variables:
+        for name, v in variables.items():
             try:
-                val = kwargs[v.name]
+                val = kwargs[name]
             except KeyError:
                 msg = "missing keyword argument [{}] to constructor [{}]"
-                msg = msg.format(v.name, cls_name)
+                msg = msg.format(name, cls_name)
                 raise TypeError(msg)
 
             # TODO perform run-time type checking?
@@ -233,10 +234,8 @@ class State(object, metaclass=StateMeta):
     __eq__ = exact
 
     def __getitem__(self, name: str) -> Any:
-        # FIXME use frozendict
         try:
-            variables = self.__class__.variables
-            var = next(v for v in variables if v.name == name)
+            var = self.__class__.variables[name]
         except StopIteration:
             msg = "no variable [{}] in state [{}]"
             msg.format(name, self.__class__.__name__)
@@ -251,7 +250,7 @@ class State(object, metaclass=StateMeta):
         return fields
 
     def __repr__(self) -> str:
-        fields = self.to_json()
+        fields = self.to_dict()
         for (name, val) in fields.items():
             if isinstance(val, float):
                 s = "{:.3f}".format(val)
