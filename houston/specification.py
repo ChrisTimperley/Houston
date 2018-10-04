@@ -158,6 +158,8 @@ class Expression(object):
             UnsupportedVariableType: Houston and/or Z3 do not support the
                 given Python type.
         """
+        logger.debug("creating Z3 variable for [%s] with type [%s]",
+                     name, type_py)
         py_to_z3 = {float: z3.Real,
                     bool: z3.Bool,
                     str: z3.String,
@@ -167,6 +169,7 @@ class Expression(object):
         except KeyError:
             raise UnsupportedVariableType(type_py)
         var = type_z3(name)
+        logger.debug("created Z3 variable for [%s]: %s", name, var)
         return var
 
     @staticmethod
