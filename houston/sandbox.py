@@ -62,6 +62,7 @@ class Sandbox(object):
         self._bugzoo = client_bugzoo
         self.__container = container
         self.__state = state_initial
+        self.__state_initial = state_initial
         self.__environment = environment
         self.__configuration = configuration
 
@@ -79,6 +80,13 @@ class Sandbox(object):
         The last observed state of the system under test.
         """
         return self.__state
+
+    @property
+    def state_initial(self) -> State:
+        """
+        The initial state of the system under test.
+        """
+        return self.__state_initial
 
     @property
     def configuration(self) -> Configuration:
