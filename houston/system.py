@@ -127,17 +127,3 @@ class System(object, metaclass=SystemMeta):
             KeyError: if no system type is registered under the given name.
         """
         return __NAME_TO_SYSTEM_TYPE[name]
-
-    def variable(self, v: str) -> Variable:
-        warnings.warn("System.variable will soon be removed",
-                      DeprecationWarning)
-        for variable in self.variables:
-            if variable.name == v:
-                return variable
-        raise KeyError("unable to find variable: {}".format(v))
-
-    @property
-    def variables(self) -> FrozenSet[Variable]:
-        warnings.warn("System.variables will soon be transformed into a class method",  # noqa: pycodestyle
-                      DeprecationWarning)
-        return self.__class__.state.variables
