@@ -12,7 +12,7 @@ class Sandbox(ArduSandbox):
                       model_name='quad',
                       param_file=fn_param)
 
-    def _post_connection_setup(self):
+    def _on_connected(self) -> bool:
         if not self.connection:
             return False
 
