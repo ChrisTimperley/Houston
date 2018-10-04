@@ -245,8 +245,8 @@ class State(object, metaclass=StateMeta):
     def to_dict(self) -> Dict[str, Any]:
         fields = {}  # type: Dict[str, Any]
         fields['time_offset'] = self.__time_offset
-        for var in self.__class__.variables:
-            fields[var.name] = getattr(self, var._field)
+        for name, var in self.__class__.variables.items():
+            fields[name] = getattr(self, var._field)
         return fields
 
     def __repr__(self) -> str:
@@ -262,4 +262,4 @@ class State(object, metaclass=StateMeta):
         return s
 
     def __iter__(self) -> Iterator[Variable]:
-        yield from self.__class__.variables
+        yield from self.__class__.variables.values()
