@@ -176,7 +176,7 @@ class Sandbox(object):
         state_after = state_before = self.state
 
         # determine which spec the system should observe
-        spec = cmd.resolve(state_before, env, config)
+        spec = command.resolve(state_before, env, config)
         postcondition = spec.postcondition
         def is_sat() -> bool:
             return postcondition.is_satisfied(command,
@@ -223,8 +223,8 @@ class Sandbox(object):
         time_elapsed = 0.0
         with self.__lock:
             outcomes = []  # type: List[CommandOutcome]
-            for cmd in mission:
-                outcome = self.run_command()
+            for cmd in commands:
+                outcome = self.run_command(cmd)
                 outcomes.append(outcome)
                 if not outcome.successful:
                     break
@@ -237,7 +237,7 @@ class Sandbox(object):
         """
         state_class = self.state.__class__
         variables = state_class.variables
-        values = {v.name: v.read(self) for v in variables}
+        values = {name: v.read(self) for (name, v) in variables.items()}
         values['time_offset'] = self.running_time
         state_new = state_class(**values)
         self.__state = state_new
