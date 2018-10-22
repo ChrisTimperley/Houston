@@ -52,6 +52,7 @@ class ArmDisarm(Command):
         Idle: if the conditions above cannot be met, the robot will ignore the
             command.
     """
+    uid = 'ardu:common:arm'
     name = 'arm'
     parameters = [
         Parameter('arm', DiscreteValueRange([True, False]))
