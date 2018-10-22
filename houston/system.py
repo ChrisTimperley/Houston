@@ -38,8 +38,8 @@ class SystemMeta(type):
         else:
             is_abstract = False
 
-        # construct an immutable "is_abstract" property
-        ns['is_abstract'] = property(lambda self, v=is_abstract: v)
+        # FIXME create immutable attribute
+        ns['is_abstract'] = is_abstract
 
         if not is_abstract:
             if 'name' not in ns:
@@ -53,7 +53,9 @@ class SystemMeta(type):
             if sys_name == '':
                 msg = "System name must be a non-empty string."
                 raise TypeError(msg)
-            ns['name'] = property(lambda self, n=sys_name: n)
+
+            # FIXME create immutable class attribute
+            ns['name'] = sys_name
 
             if 'state' not in ns:
                 msg = "System class definition is missing 'state' property"
