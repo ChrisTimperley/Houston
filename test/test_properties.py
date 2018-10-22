@@ -6,4 +6,4 @@ from houston.ardu.copter.goto import GoTo as CopterGoTo
 
 def test_command_uid():
     assert CopterGoTo.uid == 'ardu:copter:goto'
-    assert ArmDisarm.uid == 'houston.ardu.common.ArmDisarm'
+    assert ArmDisarm.uid == 'ardu:common:arm'

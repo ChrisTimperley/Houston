@@ -98,8 +98,8 @@ class CommandMeta(type):
             msg = "'uid' field must not be an empty string"
             raise TypeError(tpl_err.format(msg))
 
-        # convert uid to a read-only property
-        ns['uid'] = property(lambda u=uid: u)
+        # FIXME convert uid to a read-only property
+        # ns['uid'] = property(lambda u=uid: u)
 
         logger.debug("obtained command UID: %s", uid)
 
