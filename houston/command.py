@@ -80,6 +80,29 @@ class CommandMeta(type):
             raise TypeError(tpl_err.format(msg))
         logger.debug("obtained command name: %s", name_command)
 
+        # obtain UID
+        logger.debug("obtaining command UID")
+        if 'uid' not in ns:
+            msg = "missing 'uid' field in Command definition"
+            raise TypeError(tpl_err.format(msg))
+
+        uid = ns['uid']
+        if not isinstance(uid, str):
+            t = type(uid)
+            msg = "expected 'uid' field to be str but was {}".format(t)
+            raise TypeError(tpl_err.format(msg))
+        logger.debug("using provided UID: %s", uid)
+
+        # ensure uid is not an empty string
+        if uid == '':
+            msg = "'uid' field must not be an empty string"
+            raise TypeError(tpl_err.format(msg))
+
+        # convert uid to a read-only property
+        ns['uid'] = property(lambda u=uid: u)
+
+        logger.debug("obtained command UID: %s", uid)
+
         # build parameters
         logger.debug("building command parameters")
         try:
@@ -136,26 +159,8 @@ class CommandMeta(type):
         tpl_err = "failed to build definition for command [{}]: "
         tpl_err = tpl_err.format(cls_name) + "{}"
 
-        # obtain or generate a unique identifier
-        if 'uid' in ns:
-            uid = ns['uid']
-            if not isinstance(uid, str):
-                t = type(uid)
-                msg = "expected 'uid' field to be str but was {}".format(t)
-                raise TypeError(tpl_err.format(msg))
-            logger.debug("using provided UID: %s", uid)
-        else:
-            uid = '{}.{}'.format(cls.__module__, cls.__qualname__)
-
-        # ensure uid is not an empty string
-        if uid == '':
-            msg = "'uid' field must not be an empty string"
-            raise TypeError(tpl_err.format(msg))
-
-        # convert uid to a read-only property
-        ns['uid'] = property(lambda u=uid: u)
-
         # ensure that uid isn't already in use
+        uid = ns['uid']  # type: str
         if uid in _UID_TO_COMMAND_TYPE:
             msg = "'uid' already in use [%s]".format(uid)
             raise TypeError(tpl_error.format(msg))
@@ -253,7 +258,7 @@ class Command(object, metaclass=CommandMeta):
         return fields
 
     def __repr__(self) -> str:
-        fields = self.to_json()
+        fields = self.to_dict()
         for (name, val) in fields.items():
             if isinstance(val, float):
                 s = "{:.3f}".format(val)
