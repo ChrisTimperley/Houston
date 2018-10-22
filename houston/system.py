@@ -6,7 +6,6 @@ import logging
 
 import bugzoo
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
 
 from .command import Command
 from .configuration import Configuration
@@ -66,15 +65,36 @@ class SystemMeta(type):
                 msg = "Unexpected class for 'state' property: {}".format(msg)
                 raise TypeError(msg)
 
-            # if 'configuration' not in ns:
-            #     msg = "System class definition is missing 'configuration' property"  # noqa: pycodestyle
-            #     raise TypeError(msg)
-            # if not issubclass(ns['configuration'], Configuration):
-            #     msg = "was {} but should be a subclass of Configuration"
-            #     msg = msg.format(ns['configuration'].__name__)
-            #     tpl = "Unexpected class for 'configuration' property: {}"
-            #     msg = tpl.format(msg)
-            #     raise TypeError(msg)
+            if 'sandbox' not in ns:
+                msg = "System class definition is missing 'sandbox' property"
+                raise TypeError(msg)
+            if not issubclass(ns['sandbox'], Sandbox):
+                typ = ns['sandbox'].__name__
+                msg = "was {} but should be a subclass of Sandbox".format(typ)
+                msg = "Unexpected class for 'sandbox' property: {}".format(msg)
+                raise TypeError(msg)
+
+            if 'commands' not in ns:
+                msg = "System class definition is missing 'commands' property"
+                raise TypeError(msg)
+            if not isinstance(ns['commands'], list) \
+               or any(not issubclass(x, Command) for x in ns['commands']):
+                msg = "was {} but should be List[Type[Command]]"
+                msg = msg.format(ns['commands'])
+                msg = "Unexpected type for 'commands' property: {}".format(msg)
+
+            # TODO convert to a frozen dictionary
+            ns['commands'] = {c.name: c for c in ns['commands']}
+
+            if 'configuration' not in ns:
+                msg = "System class definition is missing 'configuration' property"  # noqa: pycodestyle
+                raise TypeError(msg)
+            if not issubclass(ns['configuration'], Configuration):
+                msg = "was {} but should be a subclass of Configuration"
+                msg = msg.format(ns['configuration'].__name__)
+                tpl = "Unexpected class for 'configuration' property: {}"
+                msg = tpl.format(msg)
+                raise TypeError(msg)
 
         return super().__new__(mcl, cls_name, bases, ns)
 
@@ -109,46 +129,3 @@ class System(object, metaclass=SystemMeta):
             KeyError: if no system type is registered under the given name.
         """
         return __NAME_TO_SYSTEM_TYPE[name]
-
-    def __init__(self,
-                 commands: List[Type[Command]],
-                 snapshot: Snapshot,
-                 config: Configuration
-                 ) -> None:
-        # TODO do not allow instantiation of abstract classes
-        self.__snapshot = snapshot
-        self.__configuration = config
-        # FIXME this should be a class variable
-        self.commands = {c.name: c for c in commands}
-
-    def provision(self, client_bugzoo: BugZooClient) -> Sandbox:
-        """
-        Constructs an interactive, ephemeral sandbox for this system.
-        """
-        raise NotImplementedError
-
-    @property
-    def configuration(self) -> Configuration:
-        return self.__configuration
-
-    @property
-    def snapshot(self) -> Snapshot:
-        """
-        The snapshot, provided by BugZoo, used to provide access to a concrete
-        implementation of this system (known as a "sandbox").
-        """
-        return self.__snapshot
-
-    def variable(self, v: str) -> Variable:
-        warnings.warn("System.variable will soon be removed",
-                      DeprecationWarning)
-        for variable in self.variables:
-            if variable.name == v:
-                return variable
-        raise KeyError("unable to find variable: {}".format(v))
-
-    @property
-    def variables(self) -> FrozenSet[Variable]:
-        warnings.warn("System.variables will soon be transformed into a class method",  # noqa: pycodestyle
-                      DeprecationWarning)
-        return self.__class__.state.variables

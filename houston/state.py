@@ -9,6 +9,8 @@ import math
 
 import attr
 
+from .connection import Message
+
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
 
@@ -133,9 +135,10 @@ class StateMeta(type):
                 logger.debug("found variable: %s", name)
                 variable_builders[name] = ns[name]
         logger.debug("building variables")
-        variables = frozenset(
-            b.build(name) for (name, b) in variable_builders.items()
-        )  # type: FrozenSet[Variable]
+        # FIXME build frozen dictionary
+        variables = {
+            name: b.build(name) for (name, b) in variable_builders.items()
+        }  # type: Dict[str, Variable]
         logger.debug("built variables: %s", variables)
 
         logger.debug("storing variables in variables property")
@@ -143,7 +146,7 @@ class StateMeta(type):
         logger.debug("stored variables in variables property")
 
         logger.debug("constructing properties")
-        for variable in variables:
+        for name, variable in variables.items():
             field = variable._field
             getter = lambda self, f=field: getattr(self, f)
             ns[variable.name] = property(getter)
@@ -173,7 +176,7 @@ class State(object, metaclass=StateMeta):
 
     def __init__(self, *args, **kwargs) -> None:
         cls_name = self.__class__.__name__
-        variables = self.__class__.variables  # type: FrozenSet[Variable]
+        variables = self.__class__.variables  # type: Dict[str, Variable]
 
         try:
             self.__time_offset = kwargs['time_offset']
@@ -191,12 +194,12 @@ class State(object, metaclass=StateMeta):
             raise TypeError(msg)
 
         # set values for each variable
-        for v in variables:
+        for name, v in variables.items():
             try:
-                val = kwargs[v.name]
+                val = kwargs[name]
             except KeyError:
                 msg = "missing keyword argument [{}] to constructor [{}]"
-                msg = msg.format(v.name, cls_name)
+                msg = msg.format(name, cls_name)
                 raise TypeError(msg)
 
             # TODO perform run-time type checking?
@@ -207,7 +210,7 @@ class State(object, metaclass=StateMeta):
         if len(kwargs) > len(variables) + 1:
             actual_args = set(n for n in kwargs)
             expected_args = \
-                set(v.name for v in variables) | {'time_offset'}
+                set(name for name in variables) | {'time_offset'}
             unexpected_arguments = list(actual_args - expected_args)
             msg = "unexpected keyword arguments [{}] supplied to constructor [{}]"  # noqa: pycodestyle
             msg = msg.format('; '.join(unexpected_arguments), cls_name)
@@ -222,7 +225,7 @@ class State(object, metaclass=StateMeta):
             msg = "illegal comparison of states: [{}] vs. [{}]"
             msg = msg.format(self.__class__.__name__, state.__class__.__name__)
             raise Exception(msg)  # FIXME use HoustonException
-        for v in self.__class__.variables:
+        for n, v in self.__class__.variables.items():
             if self.__dict__[v._field] != other.__dict__[v._field]:
                 return False
         return True
@@ -232,11 +235,14 @@ class State(object, metaclass=StateMeta):
 
     __eq__ = exact
 
+    def __hash__(self) -> int:
+        all_vars = (self.time_offset,)
+        all_vars += tuple(self[v] for v in self.__class__.variables)
+        return hash(all_vars)
+
     def __getitem__(self, name: str) -> Any:
-        # FIXME use frozendict
         try:
-            variables = self.__class__.variables
-            var = next(v for v in variables if v.name == name)
+            var = self.__class__.variables[name]
         except StopIteration:
             msg = "no variable [{}] in state [{}]"
             msg.format(name, self.__class__.__name__)
@@ -246,12 +252,12 @@ class State(object, metaclass=StateMeta):
     def to_dict(self) -> Dict[str, Any]:
         fields = {}  # type: Dict[str, Any]
         fields['time_offset'] = self.__time_offset
-        for var in self.__class__.variables:
-            fields[var.name] = getattr(self, var._field)
+        for name, var in self.__class__.variables.items():
+            fields[name] = getattr(self, var._field)
         return fields
 
     def __repr__(self) -> str:
-        fields = self.to_json()
+        fields = self.to_dict()
         for (name, val) in fields.items():
             if isinstance(val, float):
                 s = "{:.3f}".format(val)
@@ -263,4 +269,11 @@ class State(object, metaclass=StateMeta):
         return s
 
     def __iter__(self) -> Iterator[Variable]:
-        yield from self.__class__.variables
+        yield from self.__class__.variables.values()
+
+    def evolve(self, message: Message, time_offset: float) -> 'State':
+        """
+        Create a new state object evloved from this state based on the
+        received message.
+        """
+        raise NotImplementedError

@@ -2,6 +2,8 @@ __all__ = ['Parachute']
 
 from pymavlink import mavutil
 
+from ..connection import CommandLong
+from ...connection import Message
 from ...configuration import Configuration
 from ...state import State
 from ...specification import Specification
@@ -46,6 +48,10 @@ class Parachute(Command):
         ParachuteNormally,
         Idle
     ]
+
+    def to_message(self) -> Message:
+        return CommandLong(cmd_id=208,
+                           param1=self.parachute_action)
 
     def dispatch(self,
                  sandbox: 'Sandbox',

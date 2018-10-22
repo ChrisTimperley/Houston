@@ -1,4 +1,5 @@
-from typing import Set, Optional, Tuple, Dict, List, Any
+from typing import Set, Optional, Tuple, Dict, List, Any,\
+    Type
 import random
 
 from ..system import System
@@ -9,17 +10,21 @@ from ..valueRange import DiscreteValueRange
 from ..command import Command, Parameter
 from ..configuration import Configuration
 
-Domain = List[Tuple[int, Any, List[Parameter]]]
+Domain = List[Tuple[int, Type[Command], List[Parameter]]]
 
 
 class MissionDomain(object):
     """
     Specification of a range of missions.
     """
-    def __init__(self, initial_domain: Domain = None) -> None:
+    def __init__(self,
+                 system: Type[System],
+                 initial_domain: Domain = None
+                 ) -> None:
         if not initial_domain:
             initial_domain = []
         self.__domain = initial_domain
+        self.__system = system
 
     def __str__(self) -> str:
         return str(self.domain)
@@ -31,6 +36,13 @@ class MissionDomain(object):
         specific parameter ranges.
         """
         return self.__domain
+
+    @property
+    def system(self) -> Type[System]:
+        """
+        Returns the system that this mission domain belongs to.
+        """
+        return self.__system
 
     @staticmethod
     def from_initial_mission(mission: Mission,
@@ -51,7 +63,7 @@ class MissionDomain(object):
                 parameters = command.parameters
             domain.append((i, command.__class__, parameters))
             i += 1
-        return MissionDomain(domain)
+        return MissionDomain(mission.system, domain)
 
     @property
     def command_size(self) -> int:
@@ -75,7 +87,7 @@ class MissionDomain(object):
             for p in params:
                 parameters[p.name] = p.generate(rng)
             cmds.append(cmd_class(**parameters))
-        return Mission(config, environment, initial_state, cmds)
+        return Mission(config, environment, initial_state, cmds, self.system)
 
 
 class RootCauseFinder(object):
@@ -85,7 +97,7 @@ class RootCauseFinder(object):
     missions do.
     """
     def __init__(self,
-                 system: System,
+                 system: Type[System],
                  initial_state: State,
                  environment: Environment,
                  config: Configuration,
@@ -103,7 +115,7 @@ class RootCauseFinder(object):
         self.__configuration = config
 
     @property
-    def system(self) -> System:
+    def system(self) -> Type[System]:
         """
         The system under test.
         """

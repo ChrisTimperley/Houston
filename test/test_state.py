@@ -6,7 +6,7 @@ from houston.state import State, var
 def test_variable_construction():
     class S(State):
         foo = var(float, lambda c: 0.1)
-    assert set(v.name for v in S.variables) == {'foo'}
+    assert set(n for n in S.variables) == {'foo'}
 
 
 def test_constructor():
@@ -47,6 +47,18 @@ def test_is_frozen():
 
     with pytest.raises(AttributeError, message="expected AttributeError (can't set foo)"):
         state.foo = 10
+
+
+def test_hash():
+    class S(State):
+        foo = var(int, lambda c: 0)
+
+    s1 = S(foo=0, time_offset=0.0)
+    s2 = S(foo=1, time_offset=0.0)
+    s3 = S(foo=0, time_offset=0.0)
+    s4 = S(foo=1, time_offset=0.0)
+
+    assert {s1, s2, s3, s4} == {S(foo=0, time_offset=0.0), S(foo=1, time_offset=0.0)}
 
 
 def test_eq():

@@ -7,6 +7,7 @@ import geopy.distance
 from pymavlink import mavutil
 
 from .sandbox import Sandbox
+from .connection import CommandLong
 from ..state import State
 from ..environment import Environment
 from ..valueRange import ContinuousValueRange, DiscreteValueRange
@@ -76,3 +77,10 @@ class ArmDisarm(Command):
             mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
             0, arm_flag, 0, 0, 0, 0, 0, 0)
         vehicle.send_mavlink(msg)
+
+    def to_message(self) -> CommandLong:
+        msg = CommandLong(
+            0, 0,
+            mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM,
+            0, 1 if self.arm else 0, 0, 0, 0, 0, 0, 0)
+        return msg

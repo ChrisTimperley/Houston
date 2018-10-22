@@ -13,6 +13,7 @@ from ...environment import Environment
 from ...command import Parameter, Command
 from ...specification import Specification, Idle
 from ...valueRange import DiscreteValueRange
+from ..connection import CommandLong
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -108,3 +109,6 @@ class SetMode(Command):
                  config: Configuration
                  ) -> None:
         sandbox.connection.mode = dronekit.VehicleMode(self.mode)
+
+    def to_message(self) -> CommandLong:
+        raise NotImplementedError

@@ -3,14 +3,14 @@ import logging
 import re
 import z3
 import copy
-from typing import Set, Optional, Tuple, Dict, List, Any
+from typing import Set, Optional, Tuple, Dict, List, Any,\
+    Type
 
-from .root_cause import MissionDomain
 from ..system import System
 from ..specification import Specification, Expression
 from ..state import State
 from ..environment import Environment
-from ..mission import Mission, MissionOutcome
+from ..mission import Mission
 from ..configuration import Configuration
 from ..command import Command
 
@@ -21,7 +21,7 @@ logger.setLevel(logging.DEBUG)
 class SymbolicExecution(object):
 
     def __init__(self,
-                 system: System,
+                 system: Type[System],
                  initial_state: State,
                  environment: Environment,
                  configuration: Configuration
@@ -124,7 +124,8 @@ class SymbolicExecution(object):
             all_missions.append(Mission(self.configuration,
                                         self.environment,
                                         self.initial_state,
-                                        tuple(commands_list)))
+                                        commands_list,
+                                        self.system))
 
         return all_missions
 

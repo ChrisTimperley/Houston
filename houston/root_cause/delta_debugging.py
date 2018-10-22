@@ -1,5 +1,5 @@
-from typing import Set, Optional, Tuple, Dict, List
-from bugzoo import BugZoo
+from typing import Set, Optional, Tuple, Dict, List, Type
+from bugzoo.client import Client as BugZooClient
 
 from .root_cause import RootCauseFinder, MissionDomain
 from ..system import System
@@ -15,14 +15,18 @@ class DeltaDebugging(RootCauseFinder):
     it down to main problem.
     """
     def __init__(self,
-                 system: System,
+                 system: Type[System],
                  initial_state: State,
                  environment: Environment,
                  config: Configuration,
-                 initial_failing_missions: List[Mission]
+                 initial_failing_missions: List[Mission],
+                 bz: BugZooClient,
+                 snapshot: str
                  ) -> None:
         self.__domain = MissionDomain.from_initial_mission(
             initial_failing_missions[0], discrete_params=True)
+        self.__bz = bz
+        self.__snapshot = snapshot
 
         super(DeltaDebugging, self).__init__(system, initial_state,
                                              environment, config,
@@ -36,7 +40,7 @@ class DeltaDebugging(RootCauseFinder):
         return self.__domain
 
     def find_root_cause(self, time_limit: float = 0.0) -> MissionDomain:
-        empty_domain = MissionDomain()
+        empty_domain = MissionDomain(self.system)
         final_domain = self._dd2(self.domain, empty_domain)
         print("FINISHED: {}".format(str(final_domain)))
 
@@ -73,10 +77,7 @@ class DeltaDebugging(RootCauseFinder):
                                                   self.initial_state,
                                                   self.configuration,
                                                   self.rng)
-        bz = BugZoo()
-        sandbox = self.system.provision(bz)
-        res = sandbox.run(mission)
-        sandbox.destroy()
+        res = mission.run(self.__bz, self.__snapshot)
 
         return res.passed
 
@@ -86,8 +87,8 @@ class DeltaDebugging(RootCauseFinder):
         Divides a domain into two almost equal domains.
         """
         mid = int(c.command_size / 2)
-        c1 = MissionDomain(c.domain[:mid])
-        c2 = MissionDomain(c.domain[mid:])
+        c1 = MissionDomain(c.system, c.domain[:mid])
+        c2 = MissionDomain(c.system, c.domain[mid:])
         return c1, c2
 
     @staticmethod
@@ -105,5 +106,5 @@ class DeltaDebugging(RootCauseFinder):
             else:
                 command_list.append(c1.domain[i1])
                 i1 += 1
-        c = MissionDomain(command_list)
+        c = MissionDomain(c1.system, command_list)
         return c

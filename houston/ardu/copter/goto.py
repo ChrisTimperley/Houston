@@ -2,8 +2,11 @@ __all__ = ['GoTo']
 
 import dronekit
 import geopy.distance
+from pymavlink.mavutil import mavlink
 
+from ..connection import CommandLong
 from ..common import GotoLoiter
+from ...connection import Message
 from ...specification import Specification
 from ...configuration import Configuration
 from ...command import Command, Parameter
@@ -57,6 +60,14 @@ class GoTo(Command):
         GotoLoiter,
         Idle
     ]
+
+    def to_message(self) -> Message:
+        return CommandLong(target_system=0,
+                           target_component=0,
+                           cmd_id=mavlink.MAV_CMD_NAV_WAYPOINT,
+                           param_5=self.latitude,
+                           param_6=self.longitude,
+                           param_7=self.altitude)
 
     def dispatch(self,
                  sandbox: 'Sandbox',

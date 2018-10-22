@@ -1,5 +1,6 @@
-from typing import Set, Optional, Tuple, Dict
+from typing import Set, Optional, Tuple, Dict, Sequence, Iterator, Union
 from timeit import default_timer as timer
+from contextlib import contextmanager
 import math
 import time
 import threading
@@ -7,14 +8,16 @@ import signal
 import logging
 
 import bugzoo
+from bugzoo import Bug as Snapshot
 from bugzoo.client import Client as BugZooClient
-from bugzoo.core.bug import Bug as Snapshot
+from bugzoo.core.container import Container
 from bugzoo.core.fileline import FileLineSet
 
+from .connection import Message
+from .environment import Environment
+from .configuration import Configuration
 from .state import State
-from .mission import Mission, MissionOutcome
-from .util import TimeoutError, printflush
-from .command import CommandOutcome
+from .command import Command, CommandOutcome
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -25,197 +28,226 @@ class Sandbox(object):
     Sandboxes are used to provide an isolated, idempotent environment for
     executing test cases on a given system.
     """
+    @classmethod
+    @contextmanager
+    def for_snapshot(cls,
+                     client_bugzoo: BugZooClient,
+                     snapshot_or_name: Union[str, Snapshot],
+                     state_initial: State,
+                     environment: Environment,
+                     configuration: Configuration
+                     ) -> Iterator['Sandbox']:
+        """
+        Creates an ephemeral BugZoo container using a provided image before
+        launching an interactive sandbox instance inside that container. The
+        Docker container (and all of its associated resources) is automatically
+        created and destroyed upon entering and leaving the context.
+        """
+        if isinstance(snapshot_or_name, str):
+            snapshot = client_bugzoo.bugs[snapshot_or_name]
+        else:
+            snapshot = snapshot_or_name
+
+        container = None  # type: Optional[Container]
+        try:
+            container = client_bugzoo.containers.provision(snapshot)
+            with cls.for_container(client_bugzoo, container, state_initial, environment, configuration) as sandbox:  # noqa: pycodestyle
+                yield sandbox
+        finally:
+            if container:
+                del client_bugzoo.containers[container.uid]
+
+    @classmethod
+    @contextmanager
+    def for_container(cls,
+                      client_bugzoo: BugZooClient,
+                      container: Container,
+                      state_initial: State,
+                      environment: Environment,
+                      configuration: Configuration
+                      ) -> Iterator['Sandbox']:
+        """
+        Launches an interactive sandbox instance within a given Docker
+        container. The sandbox instance within the container is automatically
+        started and stopped upon entering and leaving its context.
+        """
+        sandbox = cls(client_bugzoo,
+                      container,
+                      state_initial,
+                      environment,
+                      configuration)
+        try:
+            sandbox.start()
+            yield sandbox
+        finally:
+            sandbox.stop()
+
     def __init__(self,
-                 system: 'System',
-                 client_bugzoo: BugZooClient
+                 client_bugzoo: BugZooClient,
+                 container: Container,
+                 state_initial: State,
+                 environment: Environment,
+                 configuration: Configuration
                  ) -> None:
         self.__lock = threading.Lock()
-        self.__system = system
-        self.__snapshot = system.snapshot
+        self.__state_lock = threading.Lock()
         self._bugzoo = client_bugzoo
-        self.__container = client_bugzoo.containers.provision(self.__snapshot)
-        self.__instrumented = False
+        self.__container = container
+        self.__state = state_initial
+        self.__state_initial = state_initial
+        self.__environment = environment
+        self.__configuration = configuration
+        self.__time_start = timer()
 
     @property
-    def snapshot(self) -> Snapshot:
+    def running_time(self) -> float:
         """
-        A BugZoo snapshot of the system under test.
+        Returns the number of seconds (wall-clock time) that have elapsed
+        since this sandbox session begun.
         """
-        return self.__snapshot
+        return timer() - self.__time_start
 
     @property
-    def system(self) -> 'System':
+    def state(self) -> State:
         """
-        The system under test by this sandbox.
+        The last observed state of the system under test.
         """
-        return self.__system
-
-    sut = system
+        return self.__state
 
     @property
-    def container(self) -> Optional[bugzoo.Container]:
+    def state_initial(self) -> State:
+        """
+        The initial state of the system under test.
+        """
+        return self.__state_initial
+
+    @property
+    def configuration(self) -> Configuration:
+        """
+        The configuration used by the system under test.
+        """
+        return self.__configuration
+
+    @property
+    def environment(self) -> Environment:
+        """
+        A description of the simulated environment.
+        """
+        return self.__environment
+
+    @property
+    def container(self) -> Container:
         """
         The BugZoo container underlying this sandbox.
         """
         return self.__container
 
-    @property
-    def bugzoo(self) -> BugZooClient:
+    def start(self) -> None:
         """
-        The BugZoo daemon.
-        """
-        return self._bugzoo
-
-    @property
-    def alive(self) -> bool:
-        """
-        A flag indicating whether or not this sandbox is alive.
-        """
-        # FIXME should also check that container is alive via BugZoo API
-        return self.__container is not None
-
-    def _start(self, mission: Mission) -> None:
-        """
-        Starts a new SITL instance inside this sandbox for a given mission.
+        Starts the SITL instance for this sandbox.
         """
         raise NotImplementedError
 
-    def _stop(self) -> None:
+    def stop(self) -> None:
         """
-        Stops the SITL running inside this sandbox.
+        Stops the SITL instance for this sandbox.
         """
         raise NotImplementedError
 
-    def run_with_coverage(self,
-                          mission: Mission,
-                          ) -> Tuple[MissionOutcome, FileLineSet]:
+    def issue(self, command: Command) -> None:
         """
-        Executes a given mission and returns detailed coverage information.
-
-        Returns:
-            A tuple of the form `(outcome, coverage)`, where `outcome` provides
-            a concise description of the outcome of the mission execution, and
-            `coverage` specifies the lines that were covered during the
-            execution for each source code file belonging to the system under
-            test.
+        Non-blocking for now.
         """
-        bz = self.bugzoo
-        # TODO: somewhat hardcoded
-        if not self.__instrumented:
-            self.__instrumented = True
-            bz.coverage.instrument(self.container)
+        # FIXME send message via connection
+        command.dispatch(self,
+                         self.state,
+                         self.configuration,
+                         self.environment)
 
-        # FIXME instruct BugZoo to clean coverage artifacts
-        cmd = "find . -name *.gcda | xargs rm"
-        bz.containers.command(self.container, cmd,
-                              stdout=False, stderr=False, block=True)
-        outcome = self.run(mission)
-        coverage = self.bugzoo.coverage.extract(self.container)
+    def run_command(self,
+                    command: Command,
+                    *,
+                    timeout: Optional[float] = None
+                    ) -> CommandOutcome:
+        logger.debug('running command: %s', command)
 
-        return (outcome, coverage)
-
-    def run(self, mission: Mission) -> MissionOutcome:
-        """
-        Executes a given mission and returns a description of the outcome.
-        """
-        assert self.alive
         env = self.environment
         config = self.configuration
-        self.__lock.acquire()
-        try:
-            time_before_setup = timer()
-            logger.debug("preparing for mission")
-            self._start(mission)
-            setup_time = timer() - time_before_setup
-            logger.debug("prepared for mission (took %.3f seconds)",
-                         setup_time)
+        time_start = self.running_time
+        state_after = state_before = self.state
 
-            outcomes = []
+        # determine which spec the system should observe
+        spec = command.resolve(state_before, env, config)
+        postcondition = spec.postcondition
 
-            for cmd in mission:
-                logger.debug('performing command: %s', cmd)
+        def is_sat() -> bool:
+            return postcondition.is_satisfied(command,
+                                              state_before,
+                                              state_after,
+                                              env,
+                                              config)
 
-                # compute expected state
-                start_time = time.time()
-                state_before = state_after = self.observe(0.0)
+        logger.debug('enforcing specification: %s', spec)
 
-                # determine which spec the system should observe
-                spec = cmd.resolve(state_before, env, config)
-                logger.debug('enforcing specification: %s', spec)
+        # determine timeout using specification is no timeout
+        # is provided
+        if timeout is None:
+            timeout = command.timeout(state_before, env, config)
+        logger.debug("enforcing timeout: %.3f seconds", timeout)
 
-                # enforce a timeout
-                timeout = cmd.timeout(state_before, env, config)
-                logger.debug("enforcing timeout: %.3f seconds", timeout)
-                time_before = timer()
-                passed = False
-                try:
-                    # TODO: dispatch to this container!
-                    cmd.dispatch(self, state_before, config, env)
+        self.issue(command)
 
-                    # block until the postcondition is satisfied or
-                    # the timeout is hit
-                    while not passed:
-                        state_after = self.observe(time.time() - start_time)
-                        # TODO implement idle! (add timeout in idle dispatch)
-                        sat = spec.postcondition.is_satisfied(cmd,
-                                                              state_before,
-                                                              state_after,
-                                                              env,
-                                                              config)
-                        if sat:
-                            logger.debug("command was successful")
-                            passed = True
-                            break
-                        if timer() - time_before >= int(math.ceil(timeout)):
-                            raise TimeoutError
-                        time.sleep(0.1)
-                        logger.debug("state: %s", state_after)
+        # FIXME block until completion message or timeout occurs
+        time_elapsed = 0.0
+        time_start = timer()
+        while not is_sat() and time_elapsed < timeout:
+            self.observe()
+            state_after = self.state
+            time.sleep(0.1)
+            time_elapsed = timer() - time_start
 
-                except TimeoutError:
-                    logger.debug("reached timeout before postcondition was satisfied")  # noqa: pycodestyle
-                time_elapsed = timer() - time_before
+        passed = is_sat()
+        outcome = CommandOutcome(command,
+                                 passed,
+                                 state_before,
+                                 state_after,
+                                 time_elapsed)
+        return outcome
 
-                # record the outcome of the command execution
-                outcome = CommandOutcome(cmd,
-                                         passed,
-                                         state_before,
-                                         state_after,
-                                         time_elapsed)
+    def run(self, commands: Sequence[Command]) -> 'MissionOutcome':
+        """
+        Executes a mission, represented as a sequence of commands, and
+        returns a description of the outcome.
+        """
+        from .mission import MissionOutcome
+        config = self.configuration
+        env = self.environment
+        time_start = timer()
+        time_elapsed = 0.0
+        with self.__lock:
+            outcomes = []  # type: List[CommandOutcome]
+            passed = True
+            for cmd in commands:
+                outcome = self.run_command(cmd)
                 outcomes.append(outcome)
+                if not outcome.successful:
+                    passed = False
+                    break
+            time_elapsed = timer() - time_start
+            return MissionOutcome(passed, outcomes, time_elapsed)
 
-                if not passed:
-                    total_time = timer() - time_before_setup
-                    return MissionOutcome(False,
-                                          outcomes,
-                                          setup_time,
-                                          total_time)
-
-            total_time = timer() - time_before_setup
-            return MissionOutcome(True,
-                                  outcomes,
-                                  setup_time,
-                                  total_time)
-
-        finally:
-            self._stop()
-            self.__lock.release()
-
-    def destroy(self) -> None:
+    def observe(self) -> None:
         """
-        Deallocates all resources used by this container.
+        Triggers an observation of the current state of the system under test.
         """
-        if self.__container is not None:
-            del self.bugzoo.containers[self.__container.id]
-            self.__container = None
+        state_class = self.state.__class__
+        variables = state_class.variables
+        values = {name: v.read(self) for (name, v) in variables.items()}
+        values['time_offset'] = self.running_time
+        state_new = state_class(**values)
+        with self.__state_lock:
+            self.__state = state_new
 
-    delete = destroy
-
-    def observe(self, running_time: float) -> None:
-        """
-        Returns an observation of the current state of the system running
-        inside this sandbox.
-        """
-        variables = self.system.variables
-        values = {v.name: v.read(self) for v in variables}
-        values['time_offset'] = running_time
-        return self.system.__class__.state.from_json(values)
+    def update(self, message: Message) -> None:
+        with self.__state_lock:
+            self.__state = self.__state.evolve(message, self.running_time)

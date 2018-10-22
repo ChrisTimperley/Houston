@@ -3,6 +3,7 @@ __all__ = ['GoTo']
 import dronekit
 import geopy.distance
 
+from ..connection import CommandLong
 from ...configuration import Configuration
 from ...state import State
 from ...environment import Environment
@@ -51,3 +52,11 @@ class GoTo(Command):
                                               self.longitude,
                                               state.altitude)
         sandbox.connection.simple_goto(loc)
+
+    def to_message(self) -> CommandLong:
+        return CommandLong(0,
+                           0,
+                           cmd_id=mavutil.MAV_CMD_NAV_WAYPOINT,
+                           param1=2,  # FIXME frame?
+                           param5=self.latitude,
+                           param6=self.longitude)

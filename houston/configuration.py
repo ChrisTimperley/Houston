@@ -111,12 +111,17 @@ class Configuration(object, metaclass=ConfigurationMeta):
             msg = "no option [{}] in state [{}]"
             msg.format(name, self.__class__.__name__)
             raise KeyError(msg)
-        return getattr(self, var._field)
+        return getattr(self, opt._field)
+
+    def __hash__(self) -> int:
+        all_opts = [self[opt.name] for opt in self.__class__.options]
+        all_opts.insert(0, self.__class__.__name__)
+        return hash(tuple(all_opts))
 
     def __eq__(self, other: 'Configuration') -> bool:
         if type(self) != type(other):
             msg = "illegal comparison of configurations: [{}] vs. [{}]"
-            msg = msg.format(self.__class__.__name__, state.__class__.__name__)
+            msg = msg.format(self.__class__.__name__, other.__class__.__name__)
             raise Exception(msg)  # FIXME use HoustonException
         return self.__dict__ == other.__dict__
 
@@ -127,7 +132,7 @@ class Configuration(object, metaclass=ConfigurationMeta):
         return fields
 
     def __repr__(self) -> str:
-        fields = self.to_json()
+        fields = self.to_dict()
         for (name, val) in fields.items():
             if isinstance(val, float):
                 s = "{:.3f}".format(val)
