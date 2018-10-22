@@ -7,6 +7,7 @@ from houston.specification import Idle
 
 def test_eq():
     class C1(Command):
+        uid = 'test:c1'
         name = 'c1'
         parameters = [
             Parameter('foo', DiscreteValueRange(['ON', 'OFF']))
