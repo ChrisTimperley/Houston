@@ -1,0 +1,242 @@
+commands:
+  - name: MAV_CMD_NAV_WAYPOINT
+    id: 16
+    p1:
+        name: delay
+        value:
+            type: continuous
+            min: 0.0
+            max: 10.0
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_NAV_TAKEOFF
+    id: 22
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.3
+            max: 15.0
+  - name: MAV_CMD_NAV_LOITER_UNLIM
+    id: 17
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_NAV_LOITER_TURNS
+    id: 18
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_NAV_LOITER_TIME
+    id: 19
+    p1:
+        name: time
+        value:
+            type: continuous
+            min: 0.0
+            max: 20.0
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_NAV_RETURN_TO_LAUNCH
+    id: 20
+  - name: MAV_CMD_NAV_LAND
+    id: 21
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+  - name: MAV_CMD_NAV_SPLINE_WAYPOINT
+    id: 82
+    p1:
+        name: delay
+        value:
+            type: continuous
+            min: 0.0
+            max: 10.0
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_NAV_GUIDED_ENABLE
+    id: 92
+    p1:
+        name: on_off
+        value:
+            type: discrete
+            vals:
+              - 0
+              - 1
+#  - name: MAV_CMD_DO_JUMP
+  - name: MAV_CMD_DO_SET_MODE
+    id: 176
+    p1:
+        name: mode
+        value:
+            type: discrete
+            vals:
+              - 0  # MAV_MODE_PREFLIGHT
+              - 80  # MAV_MODE_STABILIZE_DISARMED
+              - 208  # MAV_MODE_STABILIZE_ARMED
+              - 64  # MAV_MODE_MANUAL_DISARMED
+              - 192  # MAV_MODE_MANUAL_ARMED
+              - 88  # MAV_MODE_GUIDED_DISARMED
+              - 216  # MAV_MODE_GUIDED_ARMED
+              - 92  # MAV_MODE_AUTO_DISARMED
+              - 220  # MAV_MODE_AUTO_ARMED
+              - 66  # MAV_MODE_TEST_DISARMED
+              - 194  # MAV_MODE_TEST_ARMED
+  - name: MAV_CMD_DO_CHANGE_SPEED
+    id: 178
+    p2:
+        name: speed
+        value:
+            type: continuous
+            min: 0.0
+            max: 3.0
+  - name: MAV_CMD_DO_SET_HOME
+    id: 179
+    p1:
+        name: current
+        value:
+            type: discrete
+            vals:
+              - 1
+              - 2
+    p5:
+        name: lat
+        value:
+            type: continuous
+            min: -90.0
+            max: 90.0
+    p6:
+        name: lon
+        value:
+            type: continuous
+            min: -180.0
+            max: 180.0
+    p7:
+        name: alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+  - name: MAV_CMD_DO_PARACHUTE
+    id: 208
+    p1:
+        name: action
+        value:
+            type: discrete
+            vals:
+              - 0  # disable
+              - 1  # enable
+              - 2  # release
+  - name: MAV_CMD_DO_GUIDED_LIMITS
+    id: 222
+    p1:
+        name: timeout
+        value:
+            type: continuous
+            min: 0.0
+            max: 1000.0
+    p2:
+        name: min_alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+    p3:
+        name: max_alt
+        value:
+            type: continuous
+            min: 0.0
+            max: 15.0
+    p4:
+        name: max_dist
+        value:
+            type: continuous
+            min: 0.0
+            max: 30.0

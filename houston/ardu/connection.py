@@ -7,7 +7,6 @@ from pymavlink.mavutil import mavlink
 import attr
 import dronekit
 
-
 from ..connection import Message, Connection
 
 

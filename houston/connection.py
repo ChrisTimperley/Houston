@@ -15,7 +15,6 @@ class Connection(Generic[T]):
     """
     Provides a connection to the system under test using a given protocol.
     """
-
     def __init__(self, hooks: Dict[str, Callable[[T], None]]) -> None:
         """
         Establishes a new connection.
