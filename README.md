@@ -22,11 +22,12 @@ Before installing `houston`, Z3 must be installed from source within the
 virtual environment:
 
 ```
-(houston) $ git clone https://github.com/Z3Prover/z3
-(houston) $ cd z3
+(houston) $ git clone https://github.com/Z3Prover/z3 local-z3
+(houston) $ cd local-z3
 (houston) $ python scripts/mk_make.py
 (houston) $ cd build
 (houston) $ make install -j4
+(houston) $ export PYTHONPATH="${PWD}/python:${PYTHONPATH}"
 ```
 
 Once Z3 is installed, `houston` can be installed via:
