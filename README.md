@@ -14,7 +14,7 @@ or [pipenv](https://pipenv.readthedocs.io/en/latest/)). To (create and)
 enter a `pipenv` project for `houston`, execute the following:
 
 ```
-$ pipenv --python 3.6
+$ pipenv shell
 (houston) $ ...
 ```
 
