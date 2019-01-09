@@ -1,0 +1,27 @@
+version: '1.0'
+
+blueprints:
+  - tag: 'arducopter:3.6.4'
+
+bugs:
+  - name: 'arducopter:3.6.4'
+    image: 'arducopter:3.6.4'
+    languages:
+      - cpp
+    coverage:
+      files-to-instrument:
+        - ArduCopter/ArduCopter.cpp
+    source-location: /opt/ardupilot
+    test-harness:
+      type: empty
+    compiler:
+      type: simple
+      time-limit: 120
+      context: /opt/ardupilot
+      command: ./waf copter
+      command_clean: ./waf clean
+      command_with_instrumentation: |
+        ./waf configure --no-submodule-update \
+                          CXXFLAGS='--coverage' \
+                          LDFLAGS='--coverage' \
+        && ./waf copter
