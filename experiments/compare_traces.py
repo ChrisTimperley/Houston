@@ -47,7 +47,7 @@ def load_file(fn: str) -> Tuple[Mission, MissionTrace]:
                      fn)
         raise
     except Exception:
-        logger.exception("failed to load trace file [%s]")
+        logger.exception("failed to load trace file [%s]", fn)
         raise
 
 
@@ -59,6 +59,11 @@ def main():
         mission_x, traces_x = load_file(args.file1)
         mission_y, traces_y = load_file(args.file2)
     except Exception:
+        sys.exit(1)
+
+    if mission_x != mission_y:
+        logger.error("failed to compare traces: %s",
+                     "each set of traces should come from the same mission.")
         sys.exit(1)
 
 
