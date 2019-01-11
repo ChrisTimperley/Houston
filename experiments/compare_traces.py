@@ -12,7 +12,7 @@ import houston
 import houston.ardu.copter
 from houston import System
 from houston.exceptions import HoustonException
-from houston import Mission, MissionTrace
+from houston import Mission, MissionTrace, State
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -40,6 +40,10 @@ def traces_contain_same_commands(traces: List[MissionTrace]) -> bool:
     return True
 
 
+def build_expected_state_distribution():
+    pass
+
+
 def compare_traces(mission: Mission,
                    traces_x: List[MissionTrace],
                    traces_y: List[MissionTrace]
@@ -59,12 +63,40 @@ def compare_traces(mission: Mission,
     if not traces_x or not traces_y:
         raise HoustonException("cannot compare an empty set of traces.")
 
+    # FIXME this shouldn't be computed on each invocation
+    # determine the sets of categorical and continuous variables
+    state_cls = traces_x[0].commands[0].states[0].__class__
+    state_variables = list(state_cls.variables[v] for v in state_cls.variables)
+    categorical_vars = set()
+    continuous_vars = set()
+    for var in state_variables:
+        if var.typ in [int, float]:
+            continuous_vars.add(var)
+        else:
+            categorical_vars.add(var)
+    logger.debug("categorical variables: %s",
+                 ', '.join([v.name for v in categorical_vars]))
+    logger.debug("continuous variables: %s",
+                 ', '.join([v.name for v in continuous_vars]))
+
     # ensure that each set is homogeneous with respect to its sequence of
     # executed commands.
     is_homogeneous_x = traces_contain_same_commands(traces_x)
     is_homogeneous_y = traces_contain_same_commands(traces_y)
     if not is_homogeneous_x or not is_homogeneous_y:
         raise HoustonException("failed to compare traces: heterogeneous set of traces provided.")  # noqa: pycodestyle
+
+    # simplify each trace to a sequence of states, representing the state
+    # of the system after the completion (or non-completion) of each command.
+    def simplify_traces(traces: List[MissionTrace]
+                        ) -> List[Tuple[State]]:
+        return [tuple(ct.states[-1] for ct in t.commands) for t in traces]
+    state_traces_x = simplify_traces(traces_x)
+    state_traces_y = simplify_traces(traces_y)
+
+    # check that values of categorical variables are consistent between traces
+    # within each set
+
 
     # check if one set of traces executes more commands than the other
     if not traces_contain_same_commands([traces_x[0], traces_y[0]]):
