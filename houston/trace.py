@@ -82,7 +82,7 @@ class MissionTrace(object):
 
     @staticmethod
     def from_dict(d: Dict[str, Any]) -> 'MissionTrace':
-        commands = [CommandTrace.from_dict(c) for c in d['commands']]
+        commands = tuple(CommandTrace.from_dict(c) for c in d['commands'])
         return MissionTrace(commands)
 
     def to_dict(self) -> Dict[str, Any]:
