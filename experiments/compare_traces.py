@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+from typing import Tuple
 import argparse
 import logging
+import json
 import os
 import sys
 
 import houston
+from houston import Mission, MissionTrace
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -32,15 +35,30 @@ def parse_args():
     return p.parse_args()
 
 
+def load_file(fn: str) -> Tuple[Mission, MissionTrace]:
+    try:
+        with open(fn, 'r') as f:
+            jsn = json.load(f)
+            mission = Mission.from_dict(jsn['mission'])
+            traces = [MissionTrace(t) for t in jsn['traces']]
+        return (mission, traces)
+    except FileNotFoundError:
+        logger.error("failed to load trace file [%s]: file not found",
+                     fn)
+        raise
+    except Exception:
+        logger.exception("failed to load trace file [%s]")
+        raise
+
+
 def main():
     args = parse_args()
     setup_logging(args.verbose)
 
-    if not os.path.exists(args.file1):
-        logger.error("trace file not found: %s", args.file1)
-        sys.exit(1)
-    if not os.path.exists(args.file2):
-        logger.error("trace file not found: %s", args.file2)
+    try:
+        mission_x, traces_x = load_file(args.file1)
+        mission_y, traces_y = load_file(args.file2)
+    except Exception:
         sys.exit(1)
 
 
