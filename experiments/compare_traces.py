@@ -58,8 +58,6 @@ def compare_traces(mission: Mission,
     if not traces_x or not traces_y:
         raise HoustonException("cannot compare an empty set of traces.")
 
-    print(type(traces_x[0].commands))
-
     # ensure that each set is homogeneous with respect to its sequence of
     # executed commands.
     is_homogeneous_x = traces_contain_same_commands(traces_x)
