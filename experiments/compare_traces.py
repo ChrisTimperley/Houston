@@ -66,6 +66,10 @@ def compare_traces(mission: Mission,
     if not is_homogeneous_x or not is_homogeneous_y:
         raise HoustonException("failed to compare traces: heterogeneous set of traces provided.")  # noqa: pycodestyle
 
+    # check if one set of traces executes more commands than the other
+    if not traces_contain_same_commands([traces_x[0], traces_y[0]]):
+        return False
+
     return True
 
 
