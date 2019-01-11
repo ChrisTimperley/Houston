@@ -9,6 +9,8 @@ import os
 import sys
 
 import houston
+import houston.ardu.copter
+from houston.exceptions import HoustonException
 from houston import Mission, MissionTrace
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
@@ -37,6 +39,9 @@ def compare_traces(mission: Mission,
     Returns:
         True if the sets are considered approximately; False if not.
     """
+    if not trace_x or not trace_y:
+        raise HoustonException("cannot compare an empty set of traces.")
+
     return True
 
 
