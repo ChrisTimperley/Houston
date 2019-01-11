@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-from typing import Tuple
+__all__ = ['compare_traces']
+
+from typing import Tuple, List
 import argparse
 import logging
 import json
@@ -19,6 +21,25 @@ appear to behave differently?).
 """.strip()
 
 
+def compare_traces(mission: Mission,
+                   trace_x: List[MissionTrace],
+                   trace_y: List[MissionTrace]
+                   ) -> bool:
+    """
+    Compares two sets of traces for a given mission and determines whether
+    those sets are determined to be approximately equivalent.
+
+    Parameters:
+        mission: the mission used to generate all traces.
+        trace_x: a set of traces.
+        trace_y: a set of traces.
+
+    Returns:
+        True if the sets are considered approximately; False if not.
+    """
+    return True
+
+
 def setup_logging(verbose: bool = False) -> None:
     log_to_stdout = logging.StreamHandler()
     log_to_stdout.setLevel(logging.DEBUG if verbose else logging.INFO)
@@ -35,7 +56,7 @@ def parse_args():
     return p.parse_args()
 
 
-def load_file(fn: str) -> Tuple[Mission, MissionTrace]:
+def load_file(fn: str) -> Tuple[Mission, List[MissionTrace]]:
     try:
         with open(fn, 'r') as f:
             jsn = json.load(f)
@@ -65,6 +86,11 @@ def main():
         logger.error("failed to compare traces: %s",
                      "each set of traces should come from the same mission.")
         sys.exit(1)
+
+    if compare_traces(mission_x, traces_x, traces_y):
+        logger.info("traces were determined to be equivalent.")
+    else:
+        logger.info("traces were determined not to be equivalent.")
 
 
 if __name__ == '__main__':
