@@ -13,6 +13,7 @@ import houston.ardu.copter
 from houston import System
 from houston.exceptions import HoustonException
 from houston import Mission, MissionTrace, State
+from houston.state import Variable
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -96,7 +97,19 @@ def compare_traces(mission: Mission,
 
     # check that values of categorical variables are consistent between traces
     # within each set
+    def categorical_eq(var: Variable,
+                       state_traces: List[Tuple[State]]) -> bool:
+        collapse = lambda st: tuple(s[var.name] for s in st)
+        expected = collapse(state_traces[0])
+        return all(collapse(st) == expected for st in state_traces)
 
+    def all_categoricals_eq(state_traces: List[Tuple[State]]) -> bool:
+        return all(categorical_eq(v, state_traces) for v in categorical_vars)
+
+    if not all_categoricals_eq(state_traces_x):
+        raise HoustonException("failed to compare traces: inconsistent categorical values within X.")
+    if not all_categoricals_eq(state_traces_y):
+        raise HoustonException("failed to compare traces: inconsistent categorical values within Y.")
 
     # check if one set of traces executes more commands than the other
     if not traces_contain_same_commands([traces_x[0], traces_y[0]]):
