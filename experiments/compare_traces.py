@@ -10,6 +10,7 @@ import sys
 
 import houston
 import houston.ardu.copter
+from houston import System
 from houston.exceptions import HoustonException
 from houston import Mission, MissionTrace
 
@@ -85,11 +86,12 @@ def parse_args():
 
 
 def load_file(fn: str) -> Tuple[Mission, List[MissionTrace]]:
+    system = System.get_by_name('arducopter')
     try:
         with open(fn, 'r') as f:
             jsn = json.load(f)
             mission = Mission.from_dict(jsn['mission'])
-            traces = [MissionTrace.from_dict(t) for t in jsn['traces']]
+            traces = [MissionTrace.from_dict(t, system) for t in jsn['traces']]
         return (mission, traces)
     except FileNotFoundError:
         logger.error("failed to load trace file [%s]: file not found",

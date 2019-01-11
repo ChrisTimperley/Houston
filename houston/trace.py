@@ -1,6 +1,6 @@
 __all__ = ['MissionTrace', 'CommandTrace', 'TraceRecorder']
 
-from typing import Tuple, Iterator, Dict, Any, Optional
+from typing import Tuple, Iterator, Dict, Any, Optional, Type
 import attr
 import json
 import threading
@@ -46,9 +46,11 @@ class CommandTrace(object):
     # TODO messages
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> 'CommandTrace':
+    def from_dict(d: Dict[str, Any],
+                  system: 'Type[System]'
+                  ) -> 'CommandTrace':
         command = Command.from_dict(d['command'])
-        states = tuple(State.from_dict(s) for s in d['states'])
+        states = tuple(system.state.from_dict(s) for s in d['states'])
         if 'coverage' in d:
             coverage = FileLineSet.from_dict(d['coverage'])
         else:
@@ -71,18 +73,23 @@ class MissionTrace(object):
     commands = attr.ib(type=Tuple[CommandTrace, ...])
 
     @staticmethod
-    def from_file(filename: str) -> 'MissionTrace':
+    def from_file(filename: str,
+                  system: 'Type[System]'
+                  ) -> 'MissionTrace':
         with open(filename, 'r') as f:
             jsn = json.load(f)
-        return MissionTrace.from_dict(jsn)
+        return MissionTrace.from_dict(jsn, system)
 
     def to_file(self, filename: str) -> None:
         with open(filename, 'w') as f:
             json.dump(self.to_dict(), f)
 
     @staticmethod
-    def from_dict(d: Dict[str, Any]) -> 'MissionTrace':
-        commands = tuple(CommandTrace.from_dict(c) for c in d['commands'])
+    def from_dict(d: Dict[str, Any],
+                  system: 'Type[System]'
+                  ) -> 'MissionTrace':
+        commands = tuple(CommandTrace.from_dict(c, system)
+                         for c in d['commands'])
         return MissionTrace(commands)
 
     def to_dict(self) -> Dict[str, Any]:
