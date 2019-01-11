@@ -23,9 +23,25 @@ appear to behave differently?).
 """.strip()
 
 
+def traces_contain_same_commands(traces: List[MissionTrace]) -> bool:
+    """
+    Determines whether a list of traces contain the same sequence of
+    command executions.
+    """
+    assert traces is not []
+
+    expected = [ct.command for ct in traces[0].commands]
+    for t in traces:
+        actual = [ct.command for ct in t.commands]
+        if actual != expected:
+            return False
+
+    return True
+
+
 def compare_traces(mission: Mission,
-                   trace_x: List[MissionTrace],
-                   trace_y: List[MissionTrace]
+                   traces_x: List[MissionTrace],
+                   traces_y: List[MissionTrace]
                    ) -> bool:
     """
     Compares two sets of traces for a given mission and determines whether
@@ -33,14 +49,23 @@ def compare_traces(mission: Mission,
 
     Parameters:
         mission: the mission used to generate all traces.
-        trace_x: a set of traces.
-        trace_y: a set of traces.
+        traces_x: a set of traces.
+        traces_y: a set of traces.
 
     Returns:
         True if the sets are considered approximately; False if not.
     """
-    if not trace_x or not trace_y:
+    if not traces_x or not traces_y:
         raise HoustonException("cannot compare an empty set of traces.")
+
+    print(type(traces_x[0].commands))
+
+    # ensure that each set is homogeneous with respect to its sequence of
+    # executed commands.
+    is_homogeneous_x = traces_contain_same_commands(traces_x)
+    is_homogeneous_y = traces_contain_same_commands(traces_y)
+    if not is_homogeneous_x or not is_homogeneous_y:
+        raise HoustonException("failed to compare traces: heterogeneous set of traces provided.")  # noqa: pycodestyle
 
     return True
 
@@ -66,7 +91,7 @@ def load_file(fn: str) -> Tuple[Mission, List[MissionTrace]]:
         with open(fn, 'r') as f:
             jsn = json.load(f)
             mission = Mission.from_dict(jsn['mission'])
-            traces = [MissionTrace(t) for t in jsn['traces']]
+            traces = [MissionTrace.from_dict(t) for t in jsn['traces']]
         return (mission, traces)
     except FileNotFoundError:
         logger.error("failed to load trace file [%s]: file not found",
