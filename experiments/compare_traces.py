@@ -55,7 +55,7 @@ def obtain_var_names(cls_state: Type[State]) -> Tuple[Set[str], Set[str]]:
         that tuple contains the set of the names of the categorial/continuous
         variables for the system.
     """
-    variables = list(state_cls.variables[v] for v in state_cls.variables)
+    variables = list(cls_state.variables[v] for v in cls_state.variables)
     categorical = set()  # type: Set[str]
     continuous = set()  # type: Set[str]
     for var in variables:
@@ -65,7 +65,7 @@ def obtain_var_names(cls_state: Type[State]) -> Tuple[Set[str], Set[str]]:
             categorical.add(var.name)
     logger.debug("categorical variables: %s", ', '.join(categorical))
     logger.debug("continuous variables: %s", ', '.join(continuous))
-    return (categorial, continuous)
+    return (categorical, continuous)
 
 
 def matches_ground_truth(
@@ -97,7 +97,7 @@ def matches_ground_truth(
 
     # determine the sets of categorical and continuous variables
     state_cls = candidate.commands[0].states[0].__class__
-    categorial, continuous = obtain_var_names(state_cls)
+    categorical, continuous = obtain_var_names(state_cls)
 
     # ensure that all traces within the ground truth set execute an identical
     # sequence of commands
@@ -107,10 +107,10 @@ def matches_ground_truth(
     # TODO implement SimpleTrace class
     # simplify each trace to a sequence of states, representing the state
     # of the system after the completion (or non-completion) of each command.
-    def simplify_trace(trace: MissionTrace) -> Tuple[State]:
+    def simplify_trace(t: MissionTrace) -> Tuple[State]:
         return tuple(ct.states[-1] for ct in t.commands)
     simple_candidate = simplify_trace(candidate)
-    simple_truth = [simplify_traces(t) for t in truth]
+    simple_truth = [simplify_trace(t) for t in truth]
 
     # check that categorical variable values are consistent between ground
     # truth traces
@@ -123,7 +123,7 @@ def matches_ground_truth(
     def all_categoricals_eq(state_traces: List[Tuple[State]]) -> bool:
         return all(categorical_eq(v, state_traces) for v in categorical)
 
-    if not all_categoricals_eq(truth):
+    if not all_categoricals_eq(simple_truth):
         raise HoustonException("failed to compare traces: inconsistent categorical values within ground truth.")
 
     # check if the candidate trace executes a different sequence of commands
@@ -133,8 +133,8 @@ def matches_ground_truth(
 
     # use the ground truth to build a distribution of expected values for
     # each continuous variable after the completion of each command
-    num_commands = len(ground[0].commands)
-    size_truth = len(ground)
+    num_commands = len(truth[0].commands)
+    size_truth = len(truth)
     for i in range(num_commands):
         for var in continuous:
             vals = np.array([float(simple_truth[j][i][var])
@@ -142,7 +142,7 @@ def matches_ground_truth(
             mean = np.mean(vals)
             std = np.std(vals)
             tolerance = std * tolerance_factor
-            logger.info("%d:%s (%.2f +/-%.2f)", i, name, mean, tolerance)
+            logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
 
     return True
 
@@ -157,7 +157,8 @@ def setup_logging(verbose: bool = False) -> None:
 def parse_args():
     p = argparse.ArgumentParser(description=DESCRIPTION)
     p.add_argument('candidate', type=str, help='path to a candidate trace file.')
-    p.add_argument('ground-truth', type=str, help='path to a ground truth trace file.')
+    p.add_argument('groundtruth', type=str,
+                   help='path to a ground truth trace file.')
     p.add_argument('--verbose', action='store_true',
                    help='increases logging verbosity.')
     return p.parse_args()
@@ -186,8 +187,9 @@ def main():
 
     try:
         mission_cand, traces_cand = load_file(args.candidate)
-        mission_truth, traces_truth = load_file(args.ground_truth)
+        mission_truth, traces_truth = load_file(args.groundtruth)
     except Exception:
+        logger.exception("failed to load trace files")
         sys.exit(1)
 
     if mission_cand != mission_truth:
