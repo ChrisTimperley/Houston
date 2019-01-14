@@ -112,24 +112,23 @@ def matches_ground_truth(
     simple_candidate = simplify_trace(candidate)
     simple_truth = [simplify_traces(t) for t in truth]
 
-    # check that values of categorical variables are consistent between traces
-    # within each set
-    def categorical_eq(var: Variable,
+    # check that categorical variable values are consistent between ground
+    # truth traces
+    def categorical_eq(var: str,
                        state_traces: List[Tuple[State]]) -> bool:
-        collapse = lambda st: tuple(s[var.name] for s in st)
+        collapse = lambda st: tuple(s[var] for s in st)
         expected = collapse(state_traces[0])
         return all(collapse(st) == expected for st in state_traces)
 
     def all_categoricals_eq(state_traces: List[Tuple[State]]) -> bool:
-        return all(categorical_eq(v, state_traces) for v in categorical_vars)
+        return all(categorical_eq(v, state_traces) for v in categorical)
 
-    if not all_categoricals_eq(state_traces_x):
-        raise HoustonException("failed to compare traces: inconsistent categorical values within X.")
-    if not all_categoricals_eq(state_traces_y):
-        raise HoustonException("failed to compare traces: inconsistent categorical values within Y.")
+    if not all_categoricals_eq(truth):
+        raise HoustonException("failed to compare traces: inconsistent categorical values within ground truth.")
 
-    # check if one set of traces executes more commands than the other
-    if not traces_contain_same_commands([traces_x[0], traces_y[0]]):
+    # check if the candidate trace executes a different sequence of commands
+    # to the ground truth
+    if not traces_contain_same_commands([candidate, truth[0]]):
         return False
 
     # build a distribution of expected values for each continuous variable at
