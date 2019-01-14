@@ -7,6 +7,7 @@ import logging
 import json
 import os
 import sys
+import numpy as np
 
 import houston
 import houston.ardu.copter
@@ -47,7 +48,8 @@ def build_expected_state_distribution():
 
 def compare_traces(mission: Mission,
                    traces_x: List[MissionTrace],
-                   traces_y: List[MissionTrace]
+                   traces_y: List[MissionTrace],
+                   tolerance_factor: float = 1.0
                    ) -> bool:
     """
     Compares two sets of traces for a given mission and determines whether
@@ -57,6 +59,9 @@ def compare_traces(mission: Mission,
         mission: the mission used to generate all traces.
         traces_x: a set of traces.
         traces_y: a set of traces.
+        tolerance_factor: the number of standard deviations that an observed
+            (continuous) variable is allowed to deviate from the mean before
+            that observation is considered to be an outlier.
 
     Returns:
         True if the sets are considered approximately; False if not.
@@ -115,6 +120,18 @@ def compare_traces(mission: Mission,
     if not traces_contain_same_commands([traces_x[0], traces_y[0]]):
         return False
 
+    # build a distribution of expected values for each continuous variable at
+    # the end of each command
+    num_commands = len(traces_x[0].commands)
+    num_traces = len(traces_x)
+    for i in range(num_commands):
+        for var in continuous_vars:
+            vals = np.array([float(state_traces_x[j][i][var.name])
+                             for j in range(num_traces)])
+            mean = np.mean(vals)
+            std = np.std(vals)
+            tolerance = std * tolerance_factor
+            logger.info("%d:%s (%.2f +/-%.2f)", i, var.name, mean, tolerance)
     return True
 
 
