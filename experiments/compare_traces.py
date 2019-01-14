@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 __all__ = ['compare_traces']
 
-from typing import Tuple, List, Tuple, Set
+from typing import Tuple, List, Tuple, Set, Type
 import argparse
 import logging
 import json
@@ -69,7 +69,6 @@ def obtain_var_names(cls_state: Type[State]) -> Tuple[Set[str], Set[str]]:
 
 
 def matches_ground_truth(
-        mission: Mission,
         candidate: MissionTrace,
         truth: List[MissionTrace],
         tolerance_factor: float = 1.0
@@ -105,6 +104,7 @@ def matches_ground_truth(
     if not traces_contain_same_commands(truth):
         raise HoustonException("ground truth traces have inconsistent structure")
 
+    # TODO implement SimpleTrace class
     # simplify each trace to a sequence of states, representing the state
     # of the system after the completion (or non-completion) of each command.
     def simplify_trace(trace: MissionTrace) -> Tuple[State]:
@@ -131,18 +131,18 @@ def matches_ground_truth(
     if not traces_contain_same_commands([candidate, truth[0]]):
         return False
 
-    # build a distribution of expected values for each continuous variable at
-    # the end of each command
-    num_commands = len(traces_x[0].commands)
-    num_traces = len(traces_x)
+    # use the ground truth to build a distribution of expected values for
+    # each continuous variable after the completion of each command
+    num_commands = len(ground[0].commands)
+    size_truth = len(ground)
     for i in range(num_commands):
-        for var in continuous_vars:
-            vals = np.array([float(state_traces_x[j][i][var.name])
-                             for j in range(num_traces)])
+        for var in continuous:
+            vals = np.array([float(simple_truth[j][i][var])
+                             for j in range(size_truth)])
             mean = np.mean(vals)
             std = np.std(vals)
             tolerance = std * tolerance_factor
-            logger.info("%d:%s (%.2f +/-%.2f)", i, var.name, mean, tolerance)
+            logger.info("%d:%s (%.2f +/-%.2f)", i, name, mean, tolerance)
 
     return True
 
@@ -195,7 +195,7 @@ def main():
                      "all traces should come from the same mission.")
         sys.exit(1)
 
-    if matches_ground_truth(mission_cand, traces_cand[0], traces_truth):
+    if matches_ground_truth(traces_cand[0], traces_truth):
         logger.info("candidate trace deemed equivalent to ground truth.")
     else:
         logger.info("candidate trace deemed not equivalent to ground truth.")
