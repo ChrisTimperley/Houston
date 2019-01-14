@@ -24,7 +24,8 @@ setup(
         'bugzoo>=2.1.20',
         'dronekit',
         'attrs',
-        'sexpdata'
+        'sexpdata',
+        'numpy'
     ],
     packages = [
         'houston',
