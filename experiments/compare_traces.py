@@ -144,6 +144,12 @@ def matches_ground_truth(
             tolerance = std * tolerance_factor
             logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
 
+            diff = abs(mean - simple_candidate[i][var])
+            if diff > tolerance:
+                logger.debug("difference [%.2f] for parameter [%s] exceeds threshold (%.2f+/-%.2f)",
+                             diff, var, mean, tolerance)
+                return False
+
     return True
 
 
