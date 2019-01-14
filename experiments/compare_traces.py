@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 __all__ = ['compare_traces']
 
-from typing import Tuple, List
+from typing import Tuple, List, Tuple, Set
 import argparse
 import logging
 import json
@@ -42,63 +42,75 @@ def traces_contain_same_commands(traces: List[MissionTrace]) -> bool:
     return True
 
 
-def build_expected_state_distribution():
-    pass
-
-
-def compare_traces(mission: Mission,
-                   traces_x: List[MissionTrace],
-                   traces_y: List[MissionTrace],
-                   tolerance_factor: float = 1.0
-                   ) -> bool:
+# FIXME precompute
+def obtain_var_names(cls_state: Type[State]) -> Tuple[Set[str], Set[str]]:
     """
-    Compares two sets of traces for a given mission and determines whether
-    those sets are determined to be approximately equivalent.
+    Obtains the names of the categorial and continuous variables for a system.
+
+    Parameters:
+        cls_state: The class used to model the state of the system.
+
+    Returns:
+        A tuple of the form, (categorial, continuous), where each member of
+        that tuple contains the set of the names of the categorial/continuous
+        variables for the system.
+    """
+    variables = list(state_cls.variables[v] for v in state_cls.variables)
+    categorical = set()  # type: Set[str]
+    continuous = set()  # type: Set[str]
+    for var in variables:
+        if var.typ in [int, float]:
+            continuous.add(var.name)
+        else:
+            categorical.add(var.name)
+    logger.debug("categorical variables: %s", ', '.join(categorical))
+    logger.debug("continuous variables: %s", ', '.join(continuous))
+    return (categorial, continuous)
+
+
+def matches_ground_truth(
+        mission: Mission,
+        candidate: MissionTrace,
+        truth: List[MissionTrace],
+        tolerance_factor: float = 1.0
+        ) -> bool:
+    """
+    Determines whether a given trace, referred to as the candidate trace,
+    is approximately equivalent to a set of ground truth traces for the
+    same mission.
 
     Parameters:
         mission: the mission used to generate all traces.
-        traces_x: a set of traces.
-        traces_y: a set of traces.
+        candidate: the candidate trace.
+        truth: a set of ground truth traces for the provided mission, generated
+            from repeat executions using an identical configuration/version of
+            the SUT.
         tolerance_factor: the number of standard deviations that an observed
             (continuous) variable is allowed to deviate from the mean before
             that observation is considered to be an outlier.
 
     Returns:
-        True if the sets are considered approximately; False if not.
+        True if candidate trace is approximately equivalent to the ground
+        truth.
     """
-    if not traces_x or not traces_y:
-        raise HoustonException("cannot compare an empty set of traces.")
+    if not truth:
+        raise HoustonException("ground truth set must not be empty.")
 
-    # FIXME this shouldn't be computed on each invocation
     # determine the sets of categorical and continuous variables
-    state_cls = traces_x[0].commands[0].states[0].__class__
-    state_variables = list(state_cls.variables[v] for v in state_cls.variables)
-    categorical_vars = set()
-    continuous_vars = set()
-    for var in state_variables:
-        if var.typ in [int, float]:
-            continuous_vars.add(var)
-        else:
-            categorical_vars.add(var)
-    logger.debug("categorical variables: %s",
-                 ', '.join([v.name for v in categorical_vars]))
-    logger.debug("continuous variables: %s",
-                 ', '.join([v.name for v in continuous_vars]))
+    state_cls = candidate.commands[0].states[0].__class__
+    categorial, continuous = obtain_var_names(state_cls)
 
-    # ensure that each set is homogeneous with respect to its sequence of
-    # executed commands.
-    is_homogeneous_x = traces_contain_same_commands(traces_x)
-    is_homogeneous_y = traces_contain_same_commands(traces_y)
-    if not is_homogeneous_x or not is_homogeneous_y:
-        raise HoustonException("failed to compare traces: heterogeneous set of traces provided.")  # noqa: pycodestyle
+    # ensure that all traces within the ground truth set execute an identical
+    # sequence of commands
+    if not traces_contain_same_commands(truth):
+        raise HoustonException("ground truth traces have inconsistent structure")
 
     # simplify each trace to a sequence of states, representing the state
     # of the system after the completion (or non-completion) of each command.
-    def simplify_traces(traces: List[MissionTrace]
-                        ) -> List[Tuple[State]]:
-        return [tuple(ct.states[-1] for ct in t.commands) for t in traces]
-    state_traces_x = simplify_traces(traces_x)
-    state_traces_y = simplify_traces(traces_y)
+    def simplify_trace(trace: MissionTrace) -> Tuple[State]:
+        return tuple(ct.states[-1] for ct in t.commands)
+    simple_candidate = simplify_trace(candidate)
+    simple_truth = [simplify_traces(t) for t in truth]
 
     # check that values of categorical variables are consistent between traces
     # within each set
@@ -132,6 +144,7 @@ def compare_traces(mission: Mission,
             std = np.std(vals)
             tolerance = std * tolerance_factor
             logger.info("%d:%s (%.2f +/-%.2f)", i, var.name, mean, tolerance)
+
     return True
 
 
@@ -144,8 +157,8 @@ def setup_logging(verbose: bool = False) -> None:
 
 def parse_args():
     p = argparse.ArgumentParser(description=DESCRIPTION)
-    p.add_argument('file1', type=str, help='path to a trace file.')
-    p.add_argument('file2', type=str, help='path to a trace file.')
+    p.add_argument('candidate', type=str, help='path to a candidate trace file.')
+    p.add_argument('ground-truth', type=str, help='path to a ground truth trace file.')
     p.add_argument('--verbose', action='store_true',
                    help='increases logging verbosity.')
     return p.parse_args()
@@ -173,20 +186,20 @@ def main():
     setup_logging(args.verbose)
 
     try:
-        mission_x, traces_x = load_file(args.file1)
-        mission_y, traces_y = load_file(args.file2)
+        mission_cand, traces_cand = load_file(args.candidate)
+        mission_truth, traces_truth = load_file(args.ground_truth)
     except Exception:
         sys.exit(1)
 
-    if mission_x != mission_y:
+    if mission_cand != mission_truth:
         logger.error("failed to compare traces: %s",
-                     "each set of traces should come from the same mission.")
+                     "all traces should come from the same mission.")
         sys.exit(1)
 
-    if compare_traces(mission_x, traces_x, traces_y):
-        logger.info("traces were determined to be equivalent.")
+    if matches_ground_truth(mission_cand, traces_cand[0], traces_truth):
+        logger.info("candidate trace deemed equivalent to ground truth.")
     else:
-        logger.info("traces were determined not to be equivalent.")
+        logger.info("candidate trace deemed not equivalent to ground truth.")
 
 
 if __name__ == '__main__':
