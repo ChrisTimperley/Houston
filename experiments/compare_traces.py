@@ -139,19 +139,17 @@ def matches_ground_truth(
         for var in continuous:
             vals = np.array([float(simple_truth[j][i][var])
                              for j in range(size_truth)])
-            mean = np.mean(vals)
-            std = np.std(vals)
+            actual = simple_candidate[i][var]
+            mid = max(vals) - ((max(vals) - min(vals)) / 2)
             tolerance = (max(vals) - min(vals)) / 2
-            # tolerance = std * tolerance_factor
-            diff = abs(mean - simple_candidate[i][var])
-
-            logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
-            logger.debug("parameter [%s]: |%f - %f| = %f",
-                         var, mean, simple_candidate[i][var], diff)
-
-
-            is_nearly_eq = np.isclose(mean, simple_candidate[i][var],
+            tolerance *= tolerance_factor
+            diff = abs(mid - actual)
+            is_nearly_eq = np.isclose(mid, actual,
                                       rtol=1e-05, atol=tolerance, equal_nan=False)
+
+            # logger.debug("%d:%s (%.9f +/-%.9f)", i, var, mid, tolerance)
+            logger.debug("parameter [%s]: |%f - %f| = %f",
+                         var, mid, actual, diff)
             if not is_nearly_eq:
                 logger.debug("difference for parameter [%s] exceeds threshold (+/-%f)",
                              var, tolerance)
