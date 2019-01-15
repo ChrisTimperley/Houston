@@ -151,16 +151,17 @@ def matches_ground_truth(
                              for j in range(size_truth)])
             mean = np.mean(vals)
             std = np.std(vals)
-            tolerance = (max(vals) - min(vals)) / 2
-            # tolerance = std * tolerance_factor
-            logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
-
+            # tolerance = (max(vals) - min(vals)) / 2
+            tolerance = std * tolerance_factor
             diff = abs(mean - simple_candidate[i][var])
-            if diff > tolerance:
-                if diff == 0.0:
-                    logger.debug("WTF?")
-                logger.debug("difference [%f] for parameter [%s] exceeds threshold (%f+/-%f): %s",
-                             diff, var, mean, tolerance, vals)
+
+            logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
+            logger.debug("parameter [%s]: |%f - %f| = %f",
+                         var, mean, simple_candidate[i][var], diff)
+
+            if not nearly_eq(mean, simple_candidate[i][var], tolerance):
+                logger.debug("difference for parameter [%s] exceeds threshold (+/-%f)",
+                             var, tolerance)
                 return False
 
     return True
