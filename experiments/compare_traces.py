@@ -42,16 +42,6 @@ def traces_contain_same_commands(traces: List[MissionTrace]) -> bool:
     return True
 
 
-def nearly_eq(x: float, y: float, epsilon: float) -> bool:
-    # https://floating-point-gui.de/errors/comparison/
-    diff = abs(x - y)
-    if x == y:
-        return True
-    if x == 0 or y == 0 or diff < sys.float_info.epsilon:
-        return diff < (epsilon * sys.float_info.epsilon)
-    return diff / min(abs(x) + abs(y), sys.float_info.epsilon) < epsilon
-
-
 # FIXME precompute
 def obtain_var_names(cls_state: Type[State]) -> Tuple[Set[str], Set[str]]:
     """
@@ -151,15 +141,18 @@ def matches_ground_truth(
                              for j in range(size_truth)])
             mean = np.mean(vals)
             std = np.std(vals)
-            # tolerance = (max(vals) - min(vals)) / 2
-            tolerance = std * tolerance_factor
+            tolerance = (max(vals) - min(vals)) / 2
+            # tolerance = std * tolerance_factor
             diff = abs(mean - simple_candidate[i][var])
 
             logger.info("%d:%s (%.2f +/-%.2f)", i, var, mean, tolerance)
             logger.debug("parameter [%s]: |%f - %f| = %f",
                          var, mean, simple_candidate[i][var], diff)
 
-            if not nearly_eq(mean, simple_candidate[i][var], tolerance):
+
+            is_nearly_eq = np.isclose(mean, simple_candidate[i][var],
+                                      rtol=1e-05, atol=tolerance, equal_nan=False)
+            if not is_nearly_eq:
                 logger.debug("difference for parameter [%s] exceeds threshold (+/-%f)",
                              var, tolerance)
                 return False
