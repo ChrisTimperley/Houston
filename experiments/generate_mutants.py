@@ -194,9 +194,12 @@ def main():
             if is_acceptable(mutation):
                 acceptable.append(mutation)
 
+        to_diff = lambda m: client_boggart.mutations_to_diff(snapshot, [m])
+        jsn = [{'mutation': m.to_dict(),
+                'diff': to_diff(m)} for m in acceptable]
+
         with open(fn_output, 'w') as f:
-            json.dump([m.to_dict() for m in acceptable], f,
-                      indent=2)
+            json.dump(jsn, f, indent=2)
 
 
 if __name__ == '__main__':
