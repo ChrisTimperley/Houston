@@ -341,7 +341,7 @@ class Sandbox(BaseSandbox):
                     if not not_reached_timeout:
                         logger.error("Timeout occured %d", last_wp[0])
                         break
-                    if connection_lost:
+                    if connection_lost.is_set():
                         logger.error("Connection to vehicle was lost.")
                         raise ConnectionLostError
                     with wp_lock:
@@ -391,7 +391,8 @@ class Sandbox(BaseSandbox):
 
         bzc.command(self.container, rm_cmd, block=True)
         bzc.command(self.container, cp_cmd, block=True)
-        coverage = self._bugzoo.coverage.extract(self.container)
+        coverage = bzc.read_coverage(self.container)
+        # coverage = self._bugzoo.coverage.extract(self.container)
         bzc.command(self.container, rm_cmd, block=True)
         return coverage
 

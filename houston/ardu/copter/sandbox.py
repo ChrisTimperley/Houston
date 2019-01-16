@@ -7,7 +7,7 @@ from ..sandbox import Sandbox as ArduSandbox
 class Sandbox(ArduSandbox):
     def start(self) -> None:
         # FIXME #66
-        fn_param = '/opt/ardupilot/Tools/autotest/default_params/copter.parm'
+        fn_param = '/opt/ardupilot/copter.parm'
         super().start(binary_name='arducopter',  # FIXME hardcoded
                       model_name='quad',
                       param_file=fn_param)

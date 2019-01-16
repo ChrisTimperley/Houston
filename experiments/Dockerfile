@@ -73,6 +73,7 @@ RUN sudo mkdir -p /opt \
  && ./waf configure \
  && ./waf configure \
  && bear ./waf build -j8
+COPY copter.parm /opt/ardupilot/copter.parm
 WORKDIR /opt/ardupilot
 
 ENV PATH "${PATH}:/opt/ardupilot/Tools/autotest"
