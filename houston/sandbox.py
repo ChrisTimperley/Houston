@@ -234,7 +234,10 @@ class Sandbox(object):
             yield self.__recorder
             self.__recorder = None
 
-    def run_and_trace(self, commands: Sequence[Command]) -> MissionTrace:
+    def run_and_trace(self,
+                      commands: Sequence[Command],
+                      collect_coverage: bool = False
+                      ) -> MissionTrace:
         """
         Runs a given sequence of commands and records its execution trace.
         """
@@ -242,7 +245,9 @@ class Sandbox(object):
         with self.record() as recorder:
             for cmd in commands:
                 outcome = self.run_command(cmd)
-                # TODO fetch coverage
+                if collect_coverage:
+                    # TODO fetch coverage
+                    pass
                 states, messages = recorder.flush()
                 traces.append(CommandTrace(cmd, states))
         return MissionTrace(tuple(command_traces))

@@ -232,7 +232,8 @@ class Sandbox(BaseSandbox):
 
     @detect_lost_connection
     def run_and_trace(self,
-                      commands: Sequence[Command]
+                      commands: Sequence[Command],
+                      collect_coverage: bool = False
                       ) -> 'MissionTrace':
         """
         Executes a mission, represented as a sequence of commands, and
@@ -241,6 +242,13 @@ class Sandbox(BaseSandbox):
         Parameters:
             commands: the list of commands to be sent to the robot as
                 a mission.
+            collect_coverage: indicates whether or not coverage information
+                should be incorporated into the trace. If True (i.e., coverage
+                collection is enabled), this function expects the sandbox to be
+                properly instrumented.
+
+        Returns:
+            a trace describing the execution of a sequence of commands.
         """
         config = self.configuration
         env = self.environment
@@ -360,22 +368,26 @@ class Sandbox(BaseSandbox):
                         wp_to_traces[last_wp[0]] = trace
                         traces.append(trace)
 
-                        cm_directory = "command{}".format(last_wp[0])
-                        self.__copy_coverage_files(cm_directory)
+                        # if appropriate, store coverage files
+                        if collect_coverage:
+                            cm_directory = "command{}".format(last_wp[0])
+                            self.__copy_coverage_files(cm_directory)
+
                         last_wp[0] = last_wp[1]
                         wp_event.clear()
 
             self.connection.remove_hook('check_for_reached')
             logger.debug("Removed hook")
 
-            wp_to_state[0] = (initial_state, 0.0)
-            for i in range(len(commands)):
-                command = commands[i]
-                cmd_index = 1 + i
-                if cmd_index in wp_to_traces:
-                    directory = 'command{}'.format(cmd_index)
-                    coverage = self.__get_coverage(directory=directory)
-                    wp_to_traces[cmd_index].add_coverage(coverage)
+            if collect_coverage:
+                wp_to_state[0] = (initial_state, 0.0)
+                for i in range(len(commands)):
+                    command = commands[i]
+                    cmd_index = 1 + i
+                    if cmd_index in wp_to_traces:
+                        directory = 'command{}'.format(cmd_index)
+                        coverage = self.__get_coverage(directory=directory)
+                        wp_to_traces[cmd_index].add_coverage(coverage)
 
             return MissionTrace(tuple(traces))
 

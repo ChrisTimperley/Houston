@@ -40,6 +40,8 @@ def parse_args():
                    help='the directory to which the traces should be written.')
     p.add_argument('--verbose', action='store_true',
                    help='increases logging verbosity')
+    p.add_argument('--coverage', action='store_true',
+                   help='includes coverage information with each trace.')
     p.add_argument('--repeats', type=int, default=1,
                    help='number of traces to generate for each mission.')
     p.add_argument('--threads', type=int, default=1,
@@ -51,12 +53,13 @@ def parse_args():
 
 
 def trace(client_bugzoo: bugzoo.Client,
+          snapshot: bugzoo.Bug,
           container: bugzoo.Container,
           index: int,
           mission: houston.mission.Mission,
           num_repeats: int,
           dir_output: str,
-          snapshot: bugzoo.Bug=None
+          collect_coverage: bool
           ) -> None:
     kill_container = (container == None)
     assert not kill_container or snapshot != None
@@ -72,16 +75,20 @@ def trace(client_bugzoo: bugzoo.Client,
     try:
         traces = []  # List[MissionTrace]
         sandbox_cls = mission.system.sandbox
+
+        # if no container was provided, prepare one.
         if not container:
             container = client_bugzoo.containers.provision(snapshot)
-            client_bugzoo.containers.prepare_for_coverage(container)
+            if collect_coverage:
+                client_bugzoo.containers.prepare_for_coverage(container)
+
         for _ in range(num_repeats):
             with sandbox_cls.for_container(client_bugzoo,
                                            container,
                                            mission.initial_state,
                                            mission.environment,
                                            mission.configuration) as sandbox:
-                t = sandbox.run_and_trace(mission.commands)
+                t = sandbox.run_and_trace(mission.commands, collect_coverage)
                 traces.append(t)
 
         logger.debug("saving traces to file: %s", filename)
@@ -107,7 +114,8 @@ def build_traces(client_bugzoo: bugzoo.Client,
                  num_threads: int,
                  num_repeats: int,
                  dir_output: str,
-                 kill_container: bool
+                 kill_container: bool,
+                 collect_coverage: bool
                  ) -> None:
     containers = []
     futures = []
@@ -116,21 +124,22 @@ def build_traces(client_bugzoo: bugzoo.Client,
             logger.info("preparing containers")
             for _ in range(num_threads):
                 container = client_bugzoo.containers.provision(snapshot)
-                client_bugzoo.containers.prepare_for_coverage(container)
+                if collect_coverage:
+                    client_bugzoo.containers.prepare_for_coverage(container)
                 containers.append(container)
             logger.info("prepared containers")
- 
+
             with concurrent.futures.ThreadPoolExecutor(num_threads) as e:
                 for i, mission in enumerate(missions):
                     logger.debug("submitting mission %d", i)
                     container = containers[i % num_threads]
-                    future = e.submit(trace, client_bugzoo, container, i, mission, num_repeats, dir_output)
+                    future = e.submit(trace, client_bugzoo, snapshot, container, i, mission, num_repeats, dir_output, collect_coverage)
                     futures.append(future)
         else:
             with concurrent.futures.ThreadPoolExecutor(num_threads) as e:
                 for i, mission in enumerate(missions):
                     logger.debug("submitting mission %d", i)
-                    future = e.submit(trace, client_bugzoo, None, i, mission, num_repeats, dir_output, snapshot)
+                    future = e.submit(trace, client_bugzoo, snapshot, None, i, mission, num_repeats, dir_output, collect_coverage)
                     futures.append(future)
         logger.debug("submitted all missions")
         logger.debug("waiting for missions to complete")
@@ -147,6 +156,7 @@ if __name__ == '__main__':
     fn_missions = args.missions
     num_threads = args.threads
     num_repeats = args.repeats
+    collect_coverage = args.coverage
 
     assert num_threads > 0
     assert num_repeats > 0
@@ -161,6 +171,6 @@ if __name__ == '__main__':
     client_bugzoo = bugzoo.BugZoo()
     try:
         snapshot = client_bugzoo.bugs[args.snapshot]
-        build_traces(client_bugzoo, snapshot, missions, num_threads, num_repeats, args.output, args.kill_container)
+        build_traces(client_bugzoo, snapshot, missions, num_threads, num_repeats, args.output, args.kill_container, collect_coverage)
     finally:
         client_bugzoo.shutdown()

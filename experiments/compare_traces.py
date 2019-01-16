@@ -34,7 +34,7 @@ def traces_contain_same_commands(traces: List[MissionTrace]) -> bool:
     assert traces is not []
 
     expected = [ct.command for ct in traces[0].commands]
-    for t in traces:
+    for t in traces[1:]:
         actual = [ct.command for ct in t.commands]
         if actual != expected:
             return False
@@ -203,15 +203,19 @@ def main():
         logger.exception("failed to load trace files")
         sys.exit(1)
 
+    if len(traces_cand) != 1:
+        logger.error("candidate trace file must only contain one trace.")
+        sys.exit(1)
+
     if mission_cand != mission_truth:
         logger.error("failed to compare traces: %s",
                      "all traces should come from the same mission.")
         sys.exit(1)
 
     if matches_ground_truth(traces_cand[0], traces_truth):
-        logger.info("candidate trace deemed equivalent to ground truth.")
+        logger.info("RESULT: Equivalent.")
     else:
-        logger.info("candidate trace deemed not equivalent to ground truth.")
+        logger.info("RESULT: Nonequivalent")
 
 
 if __name__ == '__main__':
