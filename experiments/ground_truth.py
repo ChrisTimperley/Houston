@@ -1,4 +1,4 @@
-from typing import Iterator, Tuple, Set, List, Dict, Any, Optional
+from typing import Iterator, Tuple, Set, List, Dict, Any, Optional, Type
 import argparse
 import functools
 import contextlib
@@ -12,11 +12,13 @@ import bugzoo
 import boggart
 import rooibos
 import houston
+from houston import System
 from houston.mission import Mission
 from houston.trace import CommandTrace, MissionTrace
 from houston.ardu.copter import ArduCopter
 
-from build_traces import load_file as load_traces_file
+from compare_traces import load_file as load_traces_file
+from compare_traces import matches_ground_truth
 
 logger = logging.getLogger('houston')  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
