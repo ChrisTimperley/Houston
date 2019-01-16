@@ -92,7 +92,13 @@ def process_mutation(system: Type[System],
             logger.debug("evaluating oracle trace: %s", fn_trace)
             mission, oracle_traces = load_traces_file(fn_trace)
             trace_mutant = obtain_trace(mission)
-            return DatabaseEntry(mutation, diff, fn_trace, mission, trace_mutant)
+
+            entry = DatabaseEntry(mutation, diff, fn_trace, mission, trace_mutant)
+            if not matches_ground_truth(trace_mutant, oracle_traces):
+                logger.info("found an acceptable mutant!")
+                return entry
+            else:
+                logger.debug("mutant is not sufficiently different for given mission.")
 
     except Exception:
         logger.exception("failed to obtain data for mutant: %s", diff)
