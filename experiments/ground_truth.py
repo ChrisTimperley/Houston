@@ -1,7 +1,8 @@
-from typing import Iterator, Tuple, Set, List
+from typing import Iterator, Tuple, Set, List, Dict, Any, Optional
 import argparse
 import functools
 import contextlib
+import attr
 import logging
 import json
 import sys
@@ -20,8 +21,14 @@ logger.setLevel(logging.DEBUG)
 DESCRIPTION = "Builds a ground truth dataset."
 
 
+@attr.s
 class DatabaseEntry(object):
-    pass
+    mutation = attr.ib(type=boggart.Mutation)
+    diff = attr.ib(type=str)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {'mutation': self.mutation.to_dict(),
+                'diff': self.diff}
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -62,14 +69,17 @@ def process_mutation(client_bugzoo: bugzoo.Client,
                      snapshot: bugzoo.Bug,
                      mutation: boggart.Mutation
                      ) -> Optional[DatabaseEntry]:
-    container = None  # type: Optional[bugzoo.Container]
-    mutant = client_boggart.mutate(snapshot, [mutation])
-    try:
-        container = client_bugzoo.containers.provision(mutant.snapshot)
-        yield container
-    finally:
-        del client_bugzoo.containers[container.id]
-    del client_boggart.mutants[mutant.uuid]
+    diff = str(client_boggart.mutations_to_diff(snapshot, [mutation]))
+    # container = None  # type: Optional[bugzoo.Container]
+    # mutant = client_boggart.mutate(snapshot, [mutation])
+    # try:
+    #     container = client_bugzoo.containers.provision(mutant.snapshot)
+    #     yield container
+    # finally:
+    #     del client_bugzoo.containers[container.id]
+    # del client_boggart.mutants[mutant.uuid]
+
+    return DatabaseEntry(mutation, diff)
 
 
 def main():
@@ -120,7 +130,7 @@ def main():
         'entries': [e.to_dict() for e in db_entries]
     }
     with open(fn_output, 'w') as f:
-        json.dump(f, jsn)
+        json.dump(jsn, f, indent=2)
     logger.info("saved evaluation dataset to disk")
 
 
