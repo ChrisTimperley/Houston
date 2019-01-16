@@ -97,7 +97,7 @@ def process_mutation(system: Type[System],
     except Exception:
         logger.exception("failed to obtain data for mutant: %s", diff)
         return None
-    except houston.exceptions.NoConnectionError:
+    except (houston.exceptions.NoConnectionError, houston.exceptions.ConnectionLostError):
         logger.error("mutant resulted in crash")
         return None
     finally:
