@@ -194,7 +194,7 @@ def main():
             if is_acceptable(mutation):
                 acceptable.append(mutation)
 
-        to_diff = lambda m: client_boggart.mutations_to_diff(snapshot, [m])
+        to_diff = lambda m: str(client_boggart.mutations_to_diff(snapshot, [m]))
         jsn = [{'mutation': m.to_dict(),
                 'diff': to_diff(m)} for m in acceptable]
 
