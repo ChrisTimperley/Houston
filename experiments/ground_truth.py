@@ -12,6 +12,7 @@ import bugzoo
 import boggart
 import rooibos
 import houston
+from bugzoo import BugZoo as BugZooDaemon
 from houston import System
 from houston.mission import Mission
 from houston.trace import CommandTrace, MissionTrace
@@ -28,15 +29,13 @@ DESCRIPTION = "Builds a ground truth dataset."
 
 @attr.s
 class DatabaseEntry(object):
-    mutation = attr.ib(type=boggart.Mutation)
     diff = attr.ib(type=str)
     fn_oracle = attr.ib(type=str)
     mission = attr.ib(type=Mission)
     trace_mutant = attr.ib(type=MissionTrace)
 
     def to_dict(self) -> Dict[str, Any]:
-        return {'mutation': self.mutation.to_dict(),
-                'diff': self.diff,
+        return {'diff': self.diff,
                 'mission': self.mission.to_dict(),
                 'oracle': self.fn_oracle,
                 'trace': self.trace_mutant.to_dict()}
@@ -63,38 +62,28 @@ def parse_args():
     return p.parse_args()
 
 
-@contextlib.contextmanager
-def launch_servers() -> Iterator[Tuple[bugzoo.Client, boggart.Client]]:
-    logger.debug("launching BugZoo")
-    with bugzoo.server.ephemeral(port=6060) as client_bugzoo:
-        logger.debug("launching Rooibos")
-        with rooibos.ephemeral_server(port=8888) as client_rooibos:
-            logger.debug("launching Boggart")
-            with boggart.server.ephemeral() as client_boggart:
-                logger.debug("launched all services")
-                yield client_bugzoo, client_boggart
-
-
 def process_mutation(system: Type[System],
-                     client_bugzoo: bugzoo.Client,
-                     client_boggart: boggart.Client,
+                     daemon_bugzoo: BugZooDaemon,
                      snapshot: bugzoo.Bug,
-                     dir_oracle: str,
                      trace_filenames: List[str],
-                     mutation: boggart.Mutation
+                     diff: str
                      ) -> Optional[DatabaseEntry]:
+    patch = bugzoo.Patch.from_unidiff(diff)
+    bz = daemon_bugzoo
     sandbox_cls = system.sandbox
-    diff = str(client_boggart.mutations_to_diff(snapshot, [mutation]))
     container = None  # type: Optional[bugzoo.Container]
-    mutant = client_boggart.mutate(snapshot, [mutation])
-    snapshot_mutant = client_bugzoo.bugs[mutant.snapshot]
-
     try:
-        container = client_bugzoo.containers.provision(snapshot_mutant)
+        container = bz.containers.provision(snapshot)
         logger.debug("built container")
+        if not bz.containers.patch(container, patch):
+            logger.error("failed to patch using diff: %s", diff)
+            return None
+        if not bz.containers.build(container).successful:
+            logger.error("failed to build mutant: %s", diff)
+            return None
 
         def obtain_trace(mission: houston.Mission) -> MissionTrace:
-            args = [client_bugzoo, container, mission.initial_state,
+            args = [bz, container, mission.initial_state,
                     mission.environment, mission.configuration]
             with sandbox_cls.for_container(*args) as sandbox:
                 return sandbox.run_and_trace(mission.commands)
@@ -105,9 +94,14 @@ def process_mutation(system: Type[System],
             trace_mutant = obtain_trace(mission)
             return DatabaseEntry(mutation, diff, fn_trace, mission, trace_mutant)
 
+    except Exception:
+        logger.exception("failed to obtain data for mutant: %s", diff)
+        return None
+    except houston.exceptions.NoConnectionError:
+        logger.error("mutant resulted in crash")
+        return None
     finally:
-        del client_bugzoo.containers[container.id]
-        del client_boggart.mutants[mutant.uuid]
+        del bz.containers[container.id]
     return None
 
 
@@ -125,12 +119,11 @@ def main():
         logger.error("oracle directory not found: %s", dir_oracle)
         sys.exit(1)
 
-    # load the mutants
+    # load the mutant diffs
     try:
         with open(fn_mutants, 'r') as f:
-            mutations = [boggart.Mutation.from_dict(jsn['mutation'])
-                         for jsn in json.load(f)]
-            logger.debug("loaded %d mutations from database", len(mutations))
+            diffs = [jsn['diff'] for jsn in json.load(f)]
+            logger.debug("loaded %d diffs from database", len(diffs))
     except Exception:
         logger.exception("failed to load mutation database: %s", fn_mutants)
         sys.exit(1)
@@ -139,25 +132,26 @@ def main():
         sys.exit(1)
 
     # FIXME for the sake of expediting things
-    mutations = mutations[:5]
+    diffs = diffs[:5]
 
     # obtain a list of oracle traces
     trace_filenames = \
         [fn for fn in os.listdir(dir_oracle) if fn.endswith('.json')]
+    trace_filenames = [os.path.join(dir_oracle, fn) for fn in trace_filenames]
+
+    # launch the BugZoo daemon
+    daemon_bugzoo = bugzoo.BugZoo()
 
     # build the database
     db_entries = []  # type: List[DatabaseEntry]
-    with launch_servers() as (client_bugzoo, client_boggart):
-        snapshot = client_bugzoo.bugs[name_snapshot]
-        process = functools.partial(process_mutation,
-                                    system,
-                                    client_bugzoo,
-                                    client_boggart,
-                                    snapshot,
-                                    dir_oracle,
-                                    trace_filenames)
-        db_entries = [process(m) for m in mutations]
-        db_entries = [e for e in db_entries if e]
+    snapshot = daemon_bugzoo.bugs[name_snapshot]
+    process = functools.partial(process_mutation,
+                                system,
+                                daemon_bugzoo,
+                                snapshot,
+                                trace_filenames)
+    db_entries = [process(diff) for diff in diffs]
+    db_entries = [e for e in db_entries if e]
 
     # save to disk
     logger.info("finished constructing evaluation dataset.")
