@@ -14,6 +14,9 @@ import rooibos
 import houston
 from houston.mission import Mission
 from houston.trace import CommandTrace, MissionTrace
+from houston.ardu.copter import ArduCopter
+
+from build_traces import load_file as load_traces_file
 
 logger = logging.getLogger('houston')  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -26,11 +29,15 @@ class DatabaseEntry(object):
     mutation = attr.ib(type=boggart.Mutation)
     diff = attr.ib(type=str)
     fn_oracle = attr.ib(type=str)
+    mission = attr.ib(type=Mission)
+    trace_mutant = attr.ib(type=MissionTrace)
 
     def to_dict(self) -> Dict[str, Any]:
         return {'mutation': self.mutation.to_dict(),
                 'diff': self.diff,
-                'oracle-filename': self.fn_oracle}
+                'mission': self.mission.to_dict(),
+                'oracle': self.fn_oracle,
+                'trace': self.trace_mutant.to_dict()}
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -66,28 +73,40 @@ def launch_servers() -> Iterator[Tuple[bugzoo.Client, boggart.Client]]:
                 yield client_bugzoo, client_boggart
 
 
-def process_mutation(client_bugzoo: bugzoo.Client,
+def process_mutation(system: Type[System],
+                     client_bugzoo: bugzoo.Client,
                      client_boggart: boggart.Client,
                      snapshot: bugzoo.Bug,
                      dir_oracle: str,
                      trace_filenames: List[str],
                      mutation: boggart.Mutation
                      ) -> Optional[DatabaseEntry]:
+    sandbox_cls = system.sandbox
     diff = str(client_boggart.mutations_to_diff(snapshot, [mutation]))
     container = None  # type: Optional[bugzoo.Container]
     mutant = client_boggart.mutate(snapshot, [mutation])
     snapshot_mutant = client_bugzoo.bugs[mutant.snapshot]
+
     try:
         container = client_bugzoo.containers.provision(snapshot_mutant)
         logger.debug("built container")
+
+        def obtain_trace(mission: houston.Mission) -> MissionTrace:
+            args = [client_bugzoo, container, mission.initial_state,
+                    mission.environment, mission.configuration]
+            with sandbox_cls.for_container(*args) as sandbox:
+                return sandbox.run_and_trace(mission.commands)
+
         for fn_trace in trace_filenames:
             logger.debug("evaluating oracle trace: %s", fn_trace)
-            return DatabaseEntry(mutation, diff, fn_trace)
+            mission, oracle_traces = load_traces_file(fn_trace)
+            trace_mutant = obtain_trace(mission)
+            return DatabaseEntry(mutation, diff, fn_trace, mission, trace_mutant)
+
     finally:
         del client_bugzoo.containers[container.id]
-    del client_boggart.mutants[mutant.uuid]
-
-    return DatabaseEntry(mutation, diff)
+        del client_boggart.mutants[mutant.uuid]
+    return None
 
 
 def main():
@@ -98,6 +117,7 @@ def main():
     dir_oracle = args.oracle
     fn_output = args.output
     num_threads = args.threads
+    system = ArduCopter
 
     if not os.path.exists(dir_oracle):
         logger.error("oracle directory not found: %s", dir_oracle)
@@ -123,12 +143,12 @@ def main():
     trace_filenames = \
         [fn for fn in os.listdir(dir_oracle) if fn.endswith('.json')]
 
+    # build the database
     db_entries = []  # type: List[DatabaseEntry]
-
-    # load the oracle dataset
     with launch_servers() as (client_bugzoo, client_boggart):
         snapshot = client_bugzoo.bugs[name_snapshot]
         process = functools.partial(process_mutation,
+                                    system,
                                     client_bugzoo,
                                     client_boggart,
                                     snapshot,
