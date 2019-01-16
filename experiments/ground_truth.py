@@ -25,10 +25,12 @@ DESCRIPTION = "Builds a ground truth dataset."
 class DatabaseEntry(object):
     mutation = attr.ib(type=boggart.Mutation)
     diff = attr.ib(type=str)
+    fn_oracle = attr.ib(type=str)
 
     def to_dict(self) -> Dict[str, Any]:
         return {'mutation': self.mutation.to_dict(),
-                'diff': self.diff}
+                'diff': self.diff,
+                'oracle-filename': self.fn_oracle}
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -67,17 +69,23 @@ def launch_servers() -> Iterator[Tuple[bugzoo.Client, boggart.Client]]:
 def process_mutation(client_bugzoo: bugzoo.Client,
                      client_boggart: boggart.Client,
                      snapshot: bugzoo.Bug,
+                     dir_oracle: str,
+                     trace_filenames: List[str],
                      mutation: boggart.Mutation
                      ) -> Optional[DatabaseEntry]:
     diff = str(client_boggart.mutations_to_diff(snapshot, [mutation]))
-    # container = None  # type: Optional[bugzoo.Container]
-    # mutant = client_boggart.mutate(snapshot, [mutation])
-    # try:
-    #     container = client_bugzoo.containers.provision(mutant.snapshot)
-    #     yield container
-    # finally:
-    #     del client_bugzoo.containers[container.id]
-    # del client_boggart.mutants[mutant.uuid]
+    container = None  # type: Optional[bugzoo.Container]
+    mutant = client_boggart.mutate(snapshot, [mutation])
+    snapshot_mutant = client_bugzoo.bugs[mutant.snapshot]
+    try:
+        container = client_bugzoo.containers.provision(snapshot_mutant)
+        logger.debug("built container")
+        for fn_trace in trace_filenames:
+            logger.debug("evaluating oracle trace: %s", fn_trace)
+            return DatabaseEntry(mutation, diff, fn_trace)
+    finally:
+        del client_bugzoo.containers[container.id]
+    del client_boggart.mutants[mutant.uuid]
 
     return DatabaseEntry(mutation, diff)
 
@@ -108,6 +116,9 @@ def main():
         logger.error("mutation database file not found: %s", fn_mutants)
         sys.exit(1)
 
+    # FIXME for the sake of expediting things
+    mutations = mutations[:5]
+
     # obtain a list of oracle traces
     trace_filenames = \
         [fn for fn in os.listdir(dir_oracle) if fn.endswith('.json')]
@@ -117,7 +128,12 @@ def main():
     # load the oracle dataset
     with launch_servers() as (client_bugzoo, client_boggart):
         snapshot = client_bugzoo.bugs[name_snapshot]
-        process = functools.partial(process_mutation, client_bugzoo, client_boggart, snapshot)
+        process = functools.partial(process_mutation,
+                                    client_bugzoo,
+                                    client_boggart,
+                                    snapshot,
+                                    dir_oracle,
+                                    trace_filenames)
         db_entries = [process(m) for m in mutations]
         db_entries = [e for e in db_entries if e]
 
@@ -125,7 +141,7 @@ def main():
     logger.info("finished constructing evaluation dataset.")
     logger.debug("saving evaluation dataset to disk.")
     jsn = {
-        'oracle-trace-directory': dir_oracle,
+        'oracle-directory': dir_oracle,
         'snapshot': name_snapshot,
         'entries': [e.to_dict() for e in db_entries]
     }
