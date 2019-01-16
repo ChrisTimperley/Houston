@@ -1,4 +1,4 @@
-from typing import Iterator, Tuple, Set
+from typing import Iterator, Tuple, Set, List
 import argparse
 import functools
 import contextlib
@@ -18,6 +18,10 @@ logger = logging.getLogger('houston')  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
 
 DESCRIPTION = "Builds a ground truth dataset."
+
+
+class DatabaseEntry(object):
+    pass
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -53,25 +57,11 @@ def launch_servers() -> Iterator[Tuple[bugzoo.Client, boggart.Client]]:
                 yield client_bugzoo, client_boggart
 
 
-
-def killing_mission(client_bugzoo: bugzoo.Client,
-                    client_boggart: boggart.Client,
-                    snapshot: bugzoo.Bug,
-                    mutation: boggart.Mutation
-                   ) -> Optional[Tuple[str, Mission, MissionTrace]]:
-
-    # build trace for each mission
-    pass
-
-
-def build_mutant(client_bugzoo: bugzoo.Client,
-                 client_boggart: boggart.Client,
-                 snapshot: bugzoo.Bug,
-                 mutation: boggart.Mutation
-                 ) -> Iterator[bugzoo.Container]:
-    """
-    Provisions a BugZoo container for a given mutation.
-    """
+def process_mutation(client_bugzoo: bugzoo.Client,
+                     client_boggart: boggart.Client,
+                     snapshot: bugzoo.Bug,
+                     mutation: boggart.Mutation
+                     ) -> Optional[DatabaseEntry]:
     container = None  # type: Optional[bugzoo.Container]
     mutant = client_boggart.mutate(snapshot, [mutation])
     try:
@@ -112,15 +102,26 @@ def main():
     trace_filenames = \
         [fn for fn in os.listdir(dir_oracle) if fn.endswith('.json')]
 
+    db_entries = []  # type: List[DatabaseEntry]
+
     # load the oracle dataset
     with launch_servers() as (client_bugzoo, client_boggart):
         snapshot = client_bugzoo.bugs[name_snapshot]
-        km = functools.partial(killing_mission, client_bugzoo, client_boggart, snapshot)
-        for mutation in mutations:
-            
+        process = functools.partial(process_mutation, client_bugzoo, client_boggart, snapshot)
+        db_entries = [process(m) for m in mutations]
+        db_entries = [e for e in db_entries if e]
 
-            res = killing_mission(mutant)
-            fn_oracle_trace, mission, trace_mutant = res
+    # save to disk
+    logger.info("finished constructing evaluation dataset.")
+    logger.debug("saving evaluation dataset to disk.")
+    jsn = {
+        'oracle-trace-directory': dir_oracle,
+        'snapshot': name_snapshot,
+        'entries': [e.to_dict() for e in db_entries]
+    }
+    with open(fn_output, 'w') as f:
+        json.dump(f, jsn)
+    logger.info("saved evaluation dataset to disk")
 
 
 if __name__ == '__main__':
