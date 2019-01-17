@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Type, Optional
 
 
 class HoustonException(Exception):
@@ -27,8 +27,22 @@ class PostConnectionSetupFailed(HoustonException):
     """
     Thrown when the post-connection setup phase fails.
     """
+    def __init__(self, reason: Optional[str] = None) -> None:
+        if reason:
+            m = "An error occurred during post-connection setup: {}"
+            m = m.format(reason)
+        else:
+            m = "An unexpected error occurred during post-connection setup."
+        super().__init__(m)
+
+
+class VehicleNotReadyError(PostConnectionSetupFailed):
+    """
+    The vehicle failed to enter a state where it was ready to accept commands
+    before a timeout occurred.
+    """
     def __init__(self) -> None:
-        m = "An unexpected error occurred during post-connection setup."
+        m = "timeout occurred before vehicle was ready to receive commands."
         super().__init__(m)
 
 
