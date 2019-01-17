@@ -140,10 +140,10 @@ class Sandbox(BaseSandbox):
                 ready to accept commands.
         """
         stopwatch = Stopwatch()
-        # FIXME adjust according to sim speedup
-        timeout_set_mode = 15
-        timeout_3d_fix = 10
-        timeout_state = 90
+        speedup = self.configuration.speedup
+        timeout_set_mode = 15 / speedup + 2
+        timeout_3d_fix = 10 / speedup + 2
+        timeout_state = 90 / speedup + 2
 
         bzc = self._bugzoo.containers
         args = (binary_name, model_name, param_file, verbose)
@@ -253,6 +253,8 @@ class Sandbox(BaseSandbox):
         """
         config = self.configuration
         env = self.environment
+        speedup = config.speedup
+        timeout_command = 300 / speedup + 5
         with self.__lock:
             outcomes = []  # type: List[CommandOutcome]
             passed = True
@@ -324,6 +326,7 @@ class Sandbox(BaseSandbox):
 
             self.connection.add_hooks({'check_for_reached': check_for_reached})
 
+            # FIXME guard against possible timeout
             self.vehicle.armed = True
             while not self.vehicle.armed:
                 logger.info("waiting for the rover to be armed...")
@@ -343,9 +346,8 @@ class Sandbox(BaseSandbox):
             traces = []
             with self.record() as recorder:
                 while last_wp[0] <= len(cmds) - 1:
-                    # allow a single command to run for 5 minutes
                     logger.debug("waiting for command")
-                    not_reached_timeout = wp_event.wait(300)
+                    not_reached_timeout = wp_event.wait(timeout_command)
                     logger.debug("Event set %s", last_wp)
                     if not not_reached_timeout:
                         logger.error("Timeout occured %d", last_wp[0])
