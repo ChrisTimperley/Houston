@@ -11,6 +11,7 @@ from bugzoo.client import Client as BugZooClient
 from pymavlink import mavutil
 
 from .connection import CommandLong, MAVLinkConnection, MAVLinkMessage
+from ..util import Stopwatch
 from ..sandbox import Sandbox as BaseSandbox
 from ..command import Command, CommandOutcome
 from ..connection import Message
@@ -18,7 +19,8 @@ from ..mission import MissionOutcome
 from ..trace import MissionTrace, CommandTrace, TraceRecorder
 from ..exceptions import NoConnectionError, \
     ConnectionLostError, \
-    PostConnectionSetupFailed
+    PostConnectionSetupFailed, \
+    VehicleNotReadyError
 
 logger = logging.getLogger(__name__)  # type: logging.Logger
 logger.setLevel(logging.DEBUG)
@@ -134,9 +136,14 @@ class Sandbox(BaseSandbox):
                 is ready to receive commands.
             PostConnectionSetupFailed: if the post-connection setup phase
                 failed.
+            VehicleNotReadyError: if a timeout occurred before the vehicle was
+                ready to accept commands.
         """
-        # # TODO make it optional to compile with coverage (#146)
-        # self._bugzoo.coverage.instrument(self.container)
+        stopwatch = Stopwatch()
+        speedup = self.configuration.speedup
+        timeout_set_mode = 15 / speedup + 2
+        timeout_3d_fix = 10 / speedup + 2
+        timeout_state = 90 / speedup + 2
 
         bzc = self._bugzoo.containers
         args = (binary_name, model_name, param_file, verbose)
@@ -151,52 +158,46 @@ class Sandbox(BaseSandbox):
         port = 5760
         ip = str(bzc.ip_address(self.container))
         url = "{}:{}:{}".format(protocol, ip, port)
-
         dummy_connection = mavutil.mavlink_connection(url)
         time.sleep(10)
         dummy_connection.close()
         time.sleep(5)
-        event = threading.Event()
+        self.__connection = MAVLinkConnection(url, {'update': self.update})
 
-        def stdout(m: MAVLinkMessage):
-            name = m.name
-            message = m.message
-            if name == "STATUSTEXT" and \
-                    "EKF2 IMU0 Origin set to GPS" in str(message.text):
-                logger.debug("Vehicle is ready")
-                event.set()
-
-        self.__connection = MAVLinkConnection(url, {'update': self.update,
-                                                    'std': stdout})
-        event.wait(10)
-        self.__connection.remove_hook('std')
-
-        # FIXME add timeout
         # wait for longitude and latitude to match their expected values, and
         # for the system to match the expected `armable` state.
         initial_lon = self.state_initial['longitude']
         initial_lat = self.state_initial['latitude']
         initial_armable = self.state_initial['armable']
         v = self.state_initial.__class__.variables
+
+        # FIXME wait for 3D fix
+        time.sleep(timeout_3d_fix)
+
+        stopwatch.reset()
+        stopwatch.start()
         while True:
-            # self.observe()
             ready_lon = v['longitude'].eq(initial_lon, self.state['longitude'])
             ready_lat = v['latitude'].eq(initial_lat, self.state['latitude'])
             ready_armable = self.state['armable'] == initial_armable
             if ready_lon and ready_lat and ready_armable:
                 break
+            if stopwatch.duration > timeout_state:
+                raise VehicleNotReadyError
             time.sleep(0.05)
 
         if not self._on_connected():
             raise PostConnectionSetupFailed
 
         # wait until the vehicle is in GUIDED mode
-        # TODO: add timeout
         guided_mode = dronekit.VehicleMode('GUIDED')
         self.vehicle.mode = guided_mode
+        stopwatch.reset()
+        stopwatch.start()
         while self.vehicle.mode != guided_mode:
+            if stopwatch.duration > timeout_set_mode:
+                raise VehicleNotReadyError
             time.sleep(0.05)
-        logger.debug("Mode done")
 
     def stop(self) -> None:
         logger.debug("Stopping SITL")
@@ -252,6 +253,8 @@ class Sandbox(BaseSandbox):
         """
         config = self.configuration
         env = self.environment
+        speedup = config.speedup
+        timeout_command = 300 / speedup + 5
         with self.__lock:
             outcomes = []  # type: List[CommandOutcome]
             passed = True
@@ -323,6 +326,7 @@ class Sandbox(BaseSandbox):
 
             self.connection.add_hooks({'check_for_reached': check_for_reached})
 
+            # FIXME guard against possible timeout
             self.vehicle.armed = True
             while not self.vehicle.armed:
                 logger.info("waiting for the rover to be armed...")
@@ -342,9 +346,8 @@ class Sandbox(BaseSandbox):
             traces = []
             with self.record() as recorder:
                 while last_wp[0] <= len(cmds) - 1:
-                    # allow a single command to run for 5 minutes
                     logger.debug("waiting for command")
-                    not_reached_timeout = wp_event.wait(300)
+                    not_reached_timeout = wp_event.wait(timeout_command)
                     logger.debug("Event set %s", last_wp)
                     if not not_reached_timeout:
                         logger.error("Timeout occured %d", last_wp[0])
