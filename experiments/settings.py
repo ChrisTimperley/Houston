@@ -9,11 +9,12 @@ from houston.ardu.copter import Takeoff, GoTo, ArmDisarm, SetMode
 
 snapshot = 'ardubugs:742cdf6b'
 
-config = ArduConfig(
-    speedup=1,
-    time_per_metre_travelled=5.0,
-    constant_timeout_offset=1.0,
-    min_parachute_alt=10.0)
+def build_config(speedup: int):
+    assert speedup >= 1
+    return ArduConfig(speedup=speedup,
+                      time_per_metre_travelled=5.0,
+                      constant_timeout_offset=1.0,
+                      min_parachute_alt=10.0)
 
 sut = houston.ardu.copter.copter.ArduCopter
 
