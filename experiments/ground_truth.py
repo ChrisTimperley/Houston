@@ -1,4 +1,5 @@
 from typing import Iterator, Tuple, Set, List, Dict, Any, Optional, Type
+import concurrent.futures
 import argparse
 import functools
 import contextlib
@@ -93,7 +94,7 @@ def process_mutation(system: Type[System],
             mission, oracle_traces = load_traces_file(fn_trace)
             trace_mutant = obtain_trace(mission)
 
-            entry = DatabaseEntry(mutation, diff, fn_trace, mission, trace_mutant)
+            entry = DatabaseEntry(diff, fn_trace, mission, trace_mutant)
             if not matches_ground_truth(trace_mutant, oracle_traces):
                 logger.info("found an acceptable mutant!")
                 return entry
@@ -121,6 +122,8 @@ def main():
     num_threads = args.threads
     system = ArduCopter
 
+    assert num_threads >= 1
+
     if not os.path.exists(dir_oracle):
         logger.error("oracle directory not found: %s", dir_oracle)
         sys.exit(1)
@@ -137,9 +140,6 @@ def main():
         logger.error("mutation database file not found: %s", fn_mutants)
         sys.exit(1)
 
-    # FIXME for the sake of expediting things
-    diffs = diffs[:5]
-
     # obtain a list of oracle traces
     trace_filenames = \
         [fn for fn in os.listdir(dir_oracle) if fn.endswith('.json')]
@@ -150,14 +150,14 @@ def main():
 
     # build the database
     db_entries = []  # type: List[DatabaseEntry]
-    snapshot = daemon_bugzoo.bugs[name_snapshot]
-    process = functools.partial(process_mutation,
-                                system,
-                                daemon_bugzoo,
-                                snapshot,
-                                trace_filenames)
-    db_entries = [process(diff) for diff in diffs]
-    db_entries = [e for e in db_entries if e]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        snapshot = daemon_bugzoo.bugs[name_snapshot]
+        process = functools.partial(process_mutation,
+                                    system,
+                                    daemon_bugzoo,
+                                    snapshot,
+                                    trace_filenames)
+        db_entries = [e for e in executor.map(process, diffs) if e]
 
     # save to disk
     logger.info("finished constructing evaluation dataset.")
