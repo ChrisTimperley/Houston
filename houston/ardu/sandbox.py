@@ -255,6 +255,7 @@ class Sandbox(BaseSandbox):
         env = self.environment
         speedup = config.speedup
         timeout_command = 300 / speedup + 5
+        timeout_arm = 10 / speedup + 5
         with self.__lock:
             outcomes = []  # type: List[CommandOutcome]
             passed = True
@@ -326,12 +327,14 @@ class Sandbox(BaseSandbox):
 
             self.connection.add_hooks({'check_for_reached': check_for_reached})
 
-            # FIXME guard against possible timeout
-            self.vehicle.armed = True
+            stopwatch = Stopwatch()
+            stopwatch.start()
             while not self.vehicle.armed:
-                logger.info("waiting for the rover to be armed...")
-                time.sleep(0.1)
+                if stopwatch.duration >= timeout_arm:
+                    raise VehicleNotReadyError
+                logger.debug("waiting for the rover to be armed...")
                 self.vehicle.armed = True
+                time.sleep(0.1)
 
             # starting the mission
             self.vehicle.mode = dronekit.VehicleMode("AUTO")
