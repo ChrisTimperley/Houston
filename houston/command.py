@@ -131,8 +131,7 @@ class CommandMeta(type):
 
         # TODO type check specs
 
-        # FIXME build a FrozenDict
-        ns['specifications'] = list(specs)
+        ns['specifications'] = tuple(specs)
         logger.debug("built specifications")
 
         logger.debug("constructing properties")
